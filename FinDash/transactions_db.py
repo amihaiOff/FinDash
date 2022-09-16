@@ -1,7 +1,7 @@
 from typing import Any, Dict, Tuple
 
 
-class TransactionsColNames:
+class TransCols:
     DATE = 'date'
     PAYEE = 'payee'
     SUB_CAT = 'sub_cat'

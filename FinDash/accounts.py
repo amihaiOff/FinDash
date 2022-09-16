@@ -2,7 +2,8 @@ from abc import abstractmethod, ABC
 from enum import Enum
 from typing import Dict
 
-from transactions_db import TransactionsColNames
+from transactions_db import TransCols
+
 
 class Institution(Enum):
     FIBI = 'fibi'
@@ -14,11 +15,23 @@ class InflowSign(Enum):
     MINUS = -1
     PLUS = 1
 
-# todo think of way of enforcing mandatory cols
+
 class ColMapping:
-    MANDATORY_COLS = TransactionsColNames.get_mandatory_cols()
-    def __init__(self, ):
-        pass
+    def __init__(self, col_mapping: Dict[str, str]):
+        self._dict_col_mapping = col_mapping
+        self._validate_mapping(col_mapping)
+
+    @staticmethod
+    def _validate_mapping(col_mapping: Dict[str, str]):
+        mandatory_cols = TransCols.get_mandatory_cols()
+        col_inter = set(col_mapping.values()).intersection(set(mandatory_cols))
+        col_diff = col_inter.symmetric_difference(set(mandatory_cols))
+        if len(col_diff) != 0:
+            raise ValueError(f'Missing mandatory cols ({col_diff}) in transaction file')
+
+    @property
+    def col_mapping(self):
+        return self._dict_col_mapping
 
 
 class Account(ABC):
@@ -27,7 +40,7 @@ class Account(ABC):
         self._institution = institution
 
     @abstractmethod
-    def get_col_mapping(self) -> Dict[str, str]:
+    def get_col_mapping(self) -> ColMapping:
         pass
 
     @property
@@ -38,8 +51,8 @@ class Account(ABC):
     def institution(self):
         return self._institution
 
-    @abstractmethod
     @property
+    @abstractmethod
     def inflow_sign(self) -> InflowSign:
         pass
 
@@ -48,10 +61,12 @@ class FIBI(Account):
     def __init__(self, name: str):
         super().__init__(name, Institution.FIBI)
 
-    def get_col_mapping(self) -> Dict[str, str]:
-        return {
+    def get_col_mapping(self) -> ColMapping:
+        col_mapping = {
 
         }
+
+        return ColMapping(col_mapping)
 
     @property
     def inflow_sign(self) -> InflowSign:
@@ -62,18 +77,29 @@ class CAL(Account):
     def __init__(self, name: str):
         super().__init__(name, Institution.CAL)
 
-    def get_col_mapping(self) -> Dict[str, str]:
-        return {
+    def get_col_mapping(self) -> ColMapping:
+        col_mapping = {
 
         }
+
+        return ColMapping(col_mapping)
+
+    @property
+    def inflow_sign(self) -> InflowSign:
+        pass  # todo
 
 
 class OZ(Account):
     def __init__(self, name: str):
         super().__init__(name, Institution.OZ)
 
-    def get_col_mapping(self) -> Dict[str, str]:
-        return {
+    def get_col_mapping(self) -> ColMapping:
+        col_mapping = {
 
         }
 
+        return ColMapping(col_mapping)
+
+    @property
+    def inflow_sign(self) -> InflowSign:
+        pass  # todo
