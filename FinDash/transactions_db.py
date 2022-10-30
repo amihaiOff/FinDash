@@ -7,10 +7,10 @@ class TransCols:
     SUB_CAT = 'sub_cat'
     MEMO = 'memo'
     ACCOUNT = 'account'
-    INFLOW = 'inflow'
-    OUTFLOW = 'outflow'
+    INFLOW = 'inflow'  # if forex trans will show the conversion to ils here
+    OUTFLOW = 'outflow'  # if forex trans will show the conversion to ils here
     RECONCILED = 'reconciled'
-    AMOUNT = 'amount'
+    AMOUNT = 'amount'  # can be in forex
 
     @classmethod
     def get_mandatory_cols(cls) -> Tuple[str, str, str]:
