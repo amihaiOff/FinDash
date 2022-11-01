@@ -1,4 +1,0 @@
-db:
-  trans_db_path: dbs/trans_db.pq
-  cat_db_path: dbs/cat_db.pq
-  auto_cat_db_path: dbs/auto_cat_db.pq

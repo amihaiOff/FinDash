@@ -4,7 +4,7 @@ from io import StringIO
 
 import pandas as pd
 
-from db import TransactionsDBSchema
+from transactions_db import TransactionsDBSchema
 from transactions_importer import import_file
 from accounts import Account, ColMapping, InflowSign, Institution
 from unittest.mock import patch

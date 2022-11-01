@@ -2,7 +2,7 @@ from abc import abstractmethod, ABC
 from enum import Enum
 from typing import Dict
 
-from db import TransactionsDBSchema
+from transactions_db import TransactionsDBSchema
 
 
 class Institution(Enum):
@@ -79,7 +79,12 @@ class CAL(Account):
 
     def get_col_mapping(self) -> ColMapping:
         col_mapping = {
-
+            "Date": 'date',
+            "Amount": 'amount',
+            "Payee": 'payee',
+            "Memo": 'memo',
+            "Inflow": 'inflow',
+            "Outflow": 'outflow'
         }
 
         return ColMapping(col_mapping)
