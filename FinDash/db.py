@@ -6,9 +6,6 @@ import pandas as pd
 
 
 class DB(ABC):
-    def __init__(self, config: dict):
-        self._config = config
-        self._db = self.connect(config['db_path'])
 
     @abstractmethod
     def connect(self, db_path: str):
@@ -40,7 +37,7 @@ class TransactionsDBSchema:
     TRANS_ID: str = 'id'  # todo - add this where needed in existing code
     DATE: str = 'date'
     PAYEE: str = 'payee'
-    SUB_CAT: str = 'sub_cat'
+    CAT: str = 'cat'
     MEMO: str = 'memo'
     ACCOUNT: str = 'account'
     INFLOW: str = 'inflow'  # if forex trans will show the conversion to ils here
@@ -51,7 +48,7 @@ class TransactionsDBSchema:
     @classmethod
     def get_mandatory_cols(cls) -> Tuple[str, str, str]:
         """
-        madatory cols every raw transactions file must have
+        mandatory cols every raw transactions file must have
         """
         return cls.DATE, cls.PAYEE, cls.AMOUNT
 
@@ -61,11 +58,11 @@ class TransactionsDBSchema:
         dictionary of non-mandatory cols (keys) to add to trans file to align with
         DB schema along with default values (values)
         """
-        return {cls.SUB_CAT: '',
+        return {cls.CAT:        '',
                 cls.MEMO: '',
-                cls.ACCOUNT: None,
-                cls.INFLOW: 0,
-                cls.OUTFLOW: 0,
+                cls.ACCOUNT:    None,
+                cls.INFLOW:     0,
+                cls.OUTFLOW:    0,
                 cls.RECONCILED: False}
 
     @classmethod
@@ -73,6 +70,6 @@ class TransactionsDBSchema:
         return [f.name for f in fields(cls)]
 
 
-class Record(TransactionsDBSchema):
+class Record:
     def to_df(self):
         pass

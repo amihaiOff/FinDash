@@ -3,20 +3,31 @@ from typing import Any, Dict, List
 
 import pandas as pd
 
-from db import DB, Record
+from db import Record
+from utils import SETTINGS
+
+"""
+The purpose of this module is to provide a database for transactions.
+The database in a collection of parquet files, one per month, organized by year.
+This is the recorded history of the transactions.
+"""
 
 
-class TransactionsDBParquet(DB):
-    def __init__(self, config: dict):
-        super().__init__(config)
+class TransactionsDBParquet:
+    def __init__(self):
+        self._db = self.connect(SETTINGS['trans_db_path'])
 
-    def connect(self, db_path: str):
+    @staticmethod
+    def connect(db_path: str):
         """
         load parquet files of transactions
         :param db_path: path to db root folder
         :return:
         """
         root_path = Path(db_path)
+        if not root_path.exists():
+            return pd.DataFrame()
+
         pq_files = []
         for folder in root_path.glob('[0-9]+'):
             for file in folder.iterdir():
@@ -30,7 +41,7 @@ class TransactionsDBParquet(DB):
         """
         raise NotImplementedError('disconnecting from a parquet db is not implemented')
 
-    def save_db(self, months_to_save: List[List[str, str]]) -> None:
+    def save_db(self, months_to_save: List[List[str]]) -> None:
         """
         save the db to a parquet file. Savees only modified months
         :param months_to_save: list of tuples of form (year, month)
@@ -38,7 +49,7 @@ class TransactionsDBParquet(DB):
         """
         for year, month in months_to_save:
             self._db[self._db['year'] == year and self._db['month'] == month].to_parquet(
-                Path(self._config['db_path']) / year / f'{month}.parquet')
+                Path(SETTINGS['trans_db_path']) / year / f'{month}.parquet')
 
     def save_db_from_uuid(self, uuid_list: List[str]) -> None:
         """
@@ -102,7 +113,7 @@ class TransactionsDBParquet(DB):
         self._db = self._db[~self._db['id'].isin(uuid_list)]
         self.save_db(months)
 
-    def _get_months_from_uuid(self, uuid_lst: List[str]) -> List[List[str, str]]:
+    def _get_months_from_uuid(self, uuid_lst: List[str]) -> List[List[str]]:
         """
         get the months of the transactions with the given uuids
         :return: a set of lists of form [year, month]
