@@ -4,7 +4,7 @@ from typing import TextIO, Union
 import pandas as pd
 
 from accounts import Account, InflowSign
-from transactions_db import TransCols
+from db import TransactionsDBSchema
 
 logger = getLogger()
 
@@ -33,19 +33,19 @@ def _apply_col_mapping(trans_file: pd.DataFrame, account: Account):
 
 
 def _fit_to_db_scheme(trans_file: pd.DataFrame, account: Account):
-    for col_name, default_val in TransCols.get_non_mandatory_cols().items():
+    for col_name, default_val in TransactionsDBSchema.get_non_mandatory_cols().items():
         if col_name not in trans_file.columns:
             trans_file[col_name] = default_val
 
     # convert amount col into inflow and outflow
-    cond = trans_file[TransCols.AMOUNT] < 0 if account.inflow_sign == InflowSign.MINUS else \
-        trans_file[TransCols.AMOUNT] > 0
-    trans_file[TransCols.INFLOW][cond] = trans_file[TransCols.AMOUNT][cond].abs()
-    trans_file[TransCols.OUTFLOW][trans_file[TransCols.INFLOW] == 0] = \
-        trans_file[TransCols.AMOUNT][trans_file[TransCols.INFLOW] == 0]
+    cond = trans_file[TransactionsDBSchema.AMOUNT] < 0 if account.inflow_sign == InflowSign.MINUS else \
+        trans_file[TransactionsDBSchema.AMOUNT] > 0
+    trans_file[TransactionsDBSchema.INFLOW][cond] = trans_file[TransactionsDBSchema.AMOUNT][cond].abs()
+    trans_file[TransactionsDBSchema.OUTFLOW][trans_file[TransactionsDBSchema.INFLOW] == 0] = \
+        trans_file[TransactionsDBSchema.AMOUNT][trans_file[TransactionsDBSchema.INFLOW] == 0]
 
     # add account name
-    trans_file[TransCols.ACCOUNT] = account.name
+    trans_file[TransactionsDBSchema.ACCOUNT] = account.name
     return trans_file
 
 
