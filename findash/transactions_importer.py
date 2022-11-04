@@ -4,7 +4,7 @@ from typing import TextIO, Union
 import pandas as pd
 
 from accounts import Account, InflowSign
-from transactions_db import TransactionsDBSchema
+from transactions_db import TransDBSchema
 
 logger = getLogger()
 
@@ -35,19 +35,19 @@ def _apply_col_mapping(trans_file: pd.DataFrame, account: Account):
 
 
 def _fit_to_db_scheme(trans_file: pd.DataFrame, account: Account):
-    for col_name, default_val in TransactionsDBSchema.get_non_mandatory_cols().items():
+    for col_name, default_val in TransDBSchema.get_non_mandatory_cols().items():
         if col_name not in trans_file.columns:
             trans_file[col_name] = default_val
 
     # convert amount col into inflow and outflow
-    cond = trans_file[TransactionsDBSchema.AMOUNT] < 0 if account.inflow_sign == InflowSign.MINUS else \
-        trans_file[TransactionsDBSchema.AMOUNT] > 0
-    trans_file[TransactionsDBSchema.INFLOW][cond] = trans_file[TransactionsDBSchema.AMOUNT][cond].abs()
-    trans_file[TransactionsDBSchema.OUTFLOW][trans_file[TransactionsDBSchema.INFLOW] == 0] = \
-        trans_file[TransactionsDBSchema.AMOUNT][trans_file[TransactionsDBSchema.INFLOW] == 0]
+    cond = trans_file[TransDBSchema.AMOUNT] < 0 if account.inflow_sign == InflowSign.MINUS else \
+        trans_file[TransDBSchema.AMOUNT] > 0
+    trans_file[TransDBSchema.INFLOW][cond] = trans_file[TransDBSchema.AMOUNT][cond].abs()
+    trans_file[TransDBSchema.OUTFLOW][trans_file[TransDBSchema.INFLOW] == 0] = \
+        trans_file[TransDBSchema.AMOUNT][trans_file[TransDBSchema.INFLOW] == 0]
 
     # add account name
-    trans_file[TransactionsDBSchema.ACCOUNT] = account.name
+    trans_file[TransDBSchema.ACCOUNT] = account.name
     return trans_file
 
 
@@ -68,7 +68,7 @@ def _remove_non_numeric_chars(trans_file: pd.DataFrame) -> pd.DataFrame:
     """
     remove non-numeric chars from numeric columns
     """
-    for col in TransactionsDBSchema.get_numeric_cols():
+    for col in TransDBSchema.get_numeric_cols():
         trans_file[col] = trans_file[col].astype(str).str.replace(r'[^0-9\.-]+', '')
 
     return trans_file
@@ -80,7 +80,7 @@ def _fill_nan_values(trans_file: pd.DataFrame) -> pd.DataFrame:
     :param trans_file:
     :return:
     """
-    trans_file[TransactionsDBSchema.INFLOW] = trans_file[TransactionsDBSchema.INFLOW].fillna(0)
-    trans_file[TransactionsDBSchema.OUTFLOW] = trans_file[TransactionsDBSchema.OUTFLOW].fillna(0)
-    trans_file[TransactionsDBSchema.AMOUNT] = trans_file[TransactionsDBSchema.AMOUNT].fillna(0)
+    trans_file[TransDBSchema.INFLOW] = trans_file[TransDBSchema.INFLOW].fillna(0)
+    trans_file[TransDBSchema.OUTFLOW] = trans_file[TransDBSchema.OUTFLOW].fillna(0)
+    trans_file[TransDBSchema.AMOUNT] = trans_file[TransDBSchema.AMOUNT].fillna(0)
     return trans_file

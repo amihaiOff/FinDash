@@ -31,6 +31,22 @@ class DB(ABC):
         pass
 
 
-class Record:
+class Record(ABC):
     def to_df(self):
+        return pd.DataFrame([self.to_dict()], index=[0])
+
+    @property
+    @abstractmethod
+    def schema_cols(self):
         pass
+
+    def to_list(self):
+        return self.schema_cols
+
+    def to_dict(self):
+        """
+        convert to dict of form {col_name: value}
+        :return:
+        """
+        return {field_name: field_val for field_name, field_val in self.__dict__.items() if
+                field_val in self.schema_cols}

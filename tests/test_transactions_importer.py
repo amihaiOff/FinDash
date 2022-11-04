@@ -4,7 +4,7 @@ from io import StringIO
 
 import pandas as pd
 
-from transactions_db import TransactionsDBSchema
+from transactions_db import TransDBSchema
 from transactions_importer import import_file
 from accounts import Account, ColMapping, InflowSign, Institution
 from unittest.mock import patch
@@ -13,9 +13,9 @@ from unittest.mock import patch
 class TestAccount(Account):
     def get_col_mapping(self) -> ColMapping:
         col_mapping = {
-            'date': TransactionsDBSchema.DATE,
-            'נמען': TransactionsDBSchema.PAYEE,
-            'סכום': TransactionsDBSchema.AMOUNT
+            'date': TransDBSchema.DATE,
+            'נמען': TransDBSchema.PAYEE,
+            'סכום': TransDBSchema.AMOUNT
         }
         return ColMapping(col_mapping)
 

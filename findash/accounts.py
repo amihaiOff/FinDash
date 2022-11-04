@@ -2,7 +2,7 @@ from abc import abstractmethod, ABC
 from enum import Enum
 from typing import Dict
 
-from transactions_db import TransactionsDBSchema
+from transactions_db import TransDBSchema
 
 
 class Institution(Enum):
@@ -23,7 +23,7 @@ class ColMapping:
 
     @staticmethod
     def _validate_mapping(col_mapping: Dict[str, str]):
-        mandatory_cols = TransactionsDBSchema.get_mandatory_cols()
+        mandatory_cols = TransDBSchema.get_mandatory_cols()
         col_inter = set(col_mapping.values()).intersection(set(mandatory_cols))
         col_diff = col_inter.symmetric_difference(set(mandatory_cols))
         if len(col_diff) != 0:

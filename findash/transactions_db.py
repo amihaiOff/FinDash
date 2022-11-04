@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Tuple
 
 import pandas as pd
 
+# from accounts import Account
 from db import Record
 from utils import SETTINGS, create_uuid
 
@@ -16,7 +17,7 @@ This is the recorded history of the transactions.
 
 
 @dataclass
-class TransactionsDBSchema:
+class TransDBSchema:
     ID: str = 'id'
     DATE:  datetime = 'date'
     PAYEE: str = 'payee'
@@ -64,13 +65,62 @@ class TransactionsDBSchema:
     def get_numeric_cols(cls):
         return [cls.INFLOW, cls.OUTFLOW, cls.AMOUNT]
 
+    @classmethod
+    def get_displayed_cols_by_type(cls):
+        return {
+            'date': [cls.DATE],
+            'str': [cls.PAYEE, cls.MEMO],
+            'numeric': [cls.INFLOW, cls.OUTFLOW, cls.AMOUNT],
+            'cat': [cls.CAT, cls.ACCOUNT]
+        }
+
+    @classmethod
+    def get_dropdown_cols(cls):
+        return [cls.CAT, cls.ACCOUNT]
+
+    @classmethod
+    def get_non_special_cols(cls):
+        return [cls.PAYEE, cls.MEMO, cls.INFLOW, cls.OUTFLOW, cls.AMOUNT]
+
+    @classmethod
+    def get_date_cols(cls):
+        return [cls.DATE]
+
+
+class TransRecord(Record):
+    def __init__(self,
+                 id: str,
+                 date: datetime,
+                 payee: str,
+                 cat: str,
+                 memo: str,
+                 account,  # todo figure out the circular imports when having Account type
+                 inflow: float,
+                 outflow: float,
+                 reconciled: bool,
+                 amount: float):
+        self.id = id
+        self.date = date
+        self.payee = payee
+        self.cat = cat
+        self.memo = memo
+        self.account = account
+        self.inflow = inflow
+        self.outflow = outflow
+        self.reconciled = reconciled
+        self.amount = amount
+
+    @property
+    def schema_cols(self):
+        return [self.id, self.date, self.payee, self.cat, self.memo, self.account, self.inflow,
+                self.outflow, self.reconciled, self.amount]
+
 
 class TransactionsDBParquet:
     def __init__(self):
-        self._db = self.connect(SETTINGS['db']['trans_db_path'])
+        self._db = None
 
-    @staticmethod
-    def connect(db_path: str):
+    def connect(self, db_path: str):
         """
         load parquet files of transactions
         :param db_path: path to db root folder
@@ -84,8 +134,8 @@ class TransactionsDBParquet:
                 pq_files.append(pd.read_parquet(file))
 
         if len(pq_files) == 0:
-            return pd.DataFrame()
-        return pd.concat(pq_files)
+            self._db = pd.DataFrame()
+        self._db = pd.concat(pq_files)
 
     def disconnect(self):
         """
@@ -100,8 +150,8 @@ class TransactionsDBParquet:
         :return:
         """
         for year, month in months_to_save:
-            cond1 = self._db[TransactionsDBSchema.DATE].dt.year == int(year)
-            cond2 = self._db[TransactionsDBSchema.DATE].dt.month == int(month)
+            cond1 = self._db[TransDBSchema.DATE].dt.year == int(year)
+            cond2 = self._db[TransDBSchema.DATE].dt.month == int(month)
             self._db[cond1 & cond2].to_parquet(Path(SETTINGS['db']['trans_db_path']) / str(year) / f'{month}.pq')
 
     def save_db_from_uuid(self, uuid_list: List[str]) -> None:
@@ -146,13 +196,13 @@ class TransactionsDBParquet:
         self._db = pd.concat([self._db, df])
         self.save_db_from_uuid(df['id'].to_list())
 
-    def insert_record(self, record: Record):
+    def insert_record(self, record: TransRecord):
         """
         insert a record to the db
         :param record: record to insert
         :return:
         """
-        self._db = pd.concat([self._db, record.to_df()])
+        self._db = pd.concat([self._db, record.to_df()], ignore_index=True)
         self.save_db_from_uuid([record.id])
 
     def update_data(self):
@@ -175,7 +225,7 @@ class TransactionsDBParquet:
         """
         months = set()
         for uuid in uuid_lst:
-            date = self._db[self._db['id'] == uuid][TransactionsDBSchema.DATE].iloc[0]
+            date = self._db[self._db['id'] == uuid][TransDBSchema.DATE].iloc[0]
             months.add((date.year, date.month))
 
         return list(months)
@@ -188,7 +238,7 @@ class TransactionsDBParquet:
         :return: dataframe of transactions with uuids
         """
         # TODO: maybe vectorize the uuid creation
-        df[TransactionsDBSchema.ID] = df.apply(lambda x: create_uuid(), axis=1)
+        df[TransDBSchema.ID] = df.apply(lambda x: create_uuid(), axis=1)
 
         return df
 
@@ -199,13 +249,17 @@ class TransactionsDBParquet:
         :param df: dataframe to apply dtypes to
         :return: dataframe with dtypes applied
         """
-        df[TransactionsDBSchema.DATE] = pd.to_datetime(df[TransactionsDBSchema.DATE])
-        df[TransactionsDBSchema.RECONCILED] = df[TransactionsDBSchema.RECONCILED].astype(bool)
-        df[TransactionsDBSchema.INFLOW] = df[TransactionsDBSchema.INFLOW].astype(float)
-        df[TransactionsDBSchema.OUTFLOW] = df[TransactionsDBSchema.OUTFLOW].astype(float)
-        df[TransactionsDBSchema.AMOUNT] = df[TransactionsDBSchema.AMOUNT].astype(float)
-        df[TransactionsDBSchema.CAT] = df[TransactionsDBSchema.CAT].astype('category')
-        df[TransactionsDBSchema.ACCOUNT] = df[TransactionsDBSchema.ACCOUNT].astype('category')
-        df[TransactionsDBSchema.RECONCILED] = df[TransactionsDBSchema.RECONCILED].astype(bool)
+        df[TransDBSchema.DATE] = pd.to_datetime(df[TransDBSchema.DATE])
+        df[TransDBSchema.RECONCILED] = df[TransDBSchema.RECONCILED].astype(bool)
+        df[TransDBSchema.INFLOW] = df[TransDBSchema.INFLOW].astype(float)
+        df[TransDBSchema.OUTFLOW] = df[TransDBSchema.OUTFLOW].astype(float)
+        df[TransDBSchema.AMOUNT] = df[TransDBSchema.AMOUNT].astype(float)
+        df[TransDBSchema.CAT] = df[TransDBSchema.CAT].astype('category')
+        df[TransDBSchema.ACCOUNT] = df[TransDBSchema.ACCOUNT].astype('category')
+        df[TransDBSchema.RECONCILED] = df[TransDBSchema.RECONCILED].astype(bool)
 
         return df
+
+    @property
+    def db(self):
+        return self._db

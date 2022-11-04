@@ -3,6 +3,7 @@ from typing import List, Optional
 
 import pandas as pd
 
+from db import Record
 from utils import SETTINGS
 
 """
@@ -26,7 +27,7 @@ class CategoriesDBSchema:
     #     return iter([getattr(cls, f.name) for f in fields(cls)])
 
 
-class CatRecord:
+class CatRecord(Record):
     def __init__(self,
                  cat_name: str,
                  cat_group: Optional[str] = None,
@@ -37,18 +38,9 @@ class CatRecord:
         self.is_constant = is_constant
         self.budget = budget
 
-        self.schema_cols = [self.cat_name, self.cat_group, self.is_constant, self.budget]
-
-    def to_list(self):
-        return self.schema_cols
-
-    def to_dict(self):
-        """
-        convert to dict of form {col_name: value}
-        :return:
-        """
-        return {field_name: field_val for field_name, field_val in self.__dict__.items() if
-                field_val in self.schema_cols}
+    @property
+    def schema_cols(self):
+        return [self.cat_name, self.cat_group, self.is_constant, self.budget]
 
 
 class CategoriesDB:
