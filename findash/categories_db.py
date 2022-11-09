@@ -1,4 +1,4 @@
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
 from typing import List, Optional
 
 import pandas as pd
@@ -50,7 +50,9 @@ class CategoriesDB:
 
     def add_category_by_name(self, category_name: str) -> None:
         if category_name not in self.get_categories():
-            self._db = self._db.append({CategoriesDBSchema.CAT_NAME: category_name}, ignore_index=True)
+            self._db = self._db.append(
+                {CategoriesDBSchema.CAT_NAME: category_name},
+                ignore_index=True)
             self._save_db(SETTINGS['cat_db_path'])
         else:
             raise ValueError(f'category {category_name} already exists')
@@ -60,18 +62,24 @@ class CategoriesDB:
         self._save_db(SETTINGS['cat_db_path'])
 
     def delete_category(self, category_name: str) -> None:
-        self._db = self._db[self._db[CategoriesDBSchema.CAT_NAME] != category_name]
+        self._db = self._db[
+            self._db[CategoriesDBSchema.CAT_NAME] != category_name]
         self._save_db(SETTINGS['cat_db_path'])
 
     def get_category_budget(self, category_name: str) -> float:
-        return self._db[self._db[CategoriesDBSchema.CAT_NAME] == category_name][CategoriesDBSchema.BUDGET].iloc[0]
+        return \
+        self._db[self._db[CategoriesDBSchema.CAT_NAME] == category_name][
+            CategoriesDBSchema.BUDGET].iloc[0]
 
-    def update_category_budget(self, category_name: str, budget: float) -> None:
-        self._db[self._db[CategoriesDBSchema.CAT_NAME] == category_name][CategoriesDBSchema.BUDGET] = budget
+    def update_category_budget(self, category_name: str,
+                               budget: float) -> None:
+        self._db[self._db[CategoriesDBSchema.CAT_NAME] == category_name][
+            CategoriesDBSchema.BUDGET] = budget
         self._save_db(SETTINGS['cat_db_path'])
 
     def delete_category_budget(self, category_name: str) -> None:
-        self._db[self._db[CategoriesDBSchema.CAT_NAME] == category_name][CategoriesDBSchema.BUDGET] = None
+        self._db[self._db[CategoriesDBSchema.CAT_NAME] == category_name][
+            CategoriesDBSchema.BUDGET] = None
 
     def _save_db(self, db_path):
         self._db.to_parquet(db_path)
@@ -87,4 +95,5 @@ class CategoriesDB:
         return self._db[CategoriesDBSchema.CAT_GROUP].to_list()
 
     def get_categories_by_section(self, section: str) -> List[str]:
-        return self._db[self._db[CategoriesDBSchema.CAT_GROUP] == section][CategoriesDBSchema.CAT_NAME].to_list()
+        return self._db[self._db[CategoriesDBSchema.CAT_GROUP] == section][
+            CategoriesDBSchema.CAT_NAME].to_list()

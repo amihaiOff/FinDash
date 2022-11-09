@@ -1,6 +1,10 @@
+from typing import Dict
+
 import dash
 from dash import html
 import dash_bootstrap_components as dbc
+import dash_mantine_components as dmc
+
 import pandas as pd
 
 dash.register_page(__name__)
@@ -9,67 +13,96 @@ dummy_table = pd.DataFrame([['2022-01-01', 'מכולת', 0, 200],
                             ['2022-01-01', 'ספר', 0, 20]],
                            columns=['Date', 'Payee', 'Inflow', 'Outflow'])
 
-income_card = dbc.Card([
-                html.H4("Income"),
+checking_card = dbc.Card([
+                dbc.CardHeader('Checking'),
                 html.H2(f"{dummy_table.Outflow.sum()}")],
-                body=True,
-                color="red")
+                body=True)
 
-expense_card = dbc.Card([
-                html.H4("Expense"),
-                html.H2(f"{dummy_table.Inflow.sum()}")],
-                body=True,
-                color="light")
+income_card = dbc.CardGroup([
+                dbc.Card([
+                    dbc.CardHeader("Income"),
+                    html.H2(f"{dummy_table.Inflow.sum()}")
+                ],
+                    color='light',
+                    body=True
+                ),
+                dbc.Card([
+                    dbc.CardHeader("Income usage"),
+                    html.H2('90%')
+                ],
+                    color="light",
+                    body=True
+                )
+])
+
+expenses_card = dbc.CardGroup([
+                    dbc.Card([
+                        dbc.CardHeader("Expenses"),
+                        html.H2(f"{dummy_table.Inflow.sum()}")
+                    ],
+                        color='light',
+                        body=True
+                    ),
+                    dbc.Card([
+                        dbc.CardHeader("Expenses usage"),
+                        html.H2('90%')
+                    ],
+                        color="light",
+                        body=True
+                    )
+])
 
 savings_card = dbc.Card([
-                html.H4("Savings"),
+                dbc.CardHeader("Savings"),
                 html.H2(f"{dummy_table.Inflow.sum()}")],
                 body=True,
-                color="blue",
                 outline=True,
-                inverse=True
                 )
+
+
+def content(title,
+            pct,
+            size='lg',
+            color='green',
+            text_weight=500):
+    return dmc.Grid(
+        children=[
+            dmc.Col(dmc.Text(f"{title}", weight=text_weight), span=2),
+            dmc.Col(dmc.Text(f"{pct}% budget used", align="center"), span=2),
+            dmc.Col(dmc.Progress(value=pct, label=f"{pct}/1000", size=size,
+                                 color=color), span=3),
+            dmc.Col(dmc.Text(f'Remaining: 300'), span=2)
+        ],
+        gutter="xs",
+)
+
+
+def accordion_item(main_title: str,
+                   main_usage: int,
+                   line_parameters: Dict[str, int]):
+    return dmc.AccordionItem([
+        dmc.AccordionControl(content(main_title, main_usage, size='xl',
+                                     color='red', text_weight=700)),
+        dmc.AccordionPanel([
+            content(line_title, line_pct) for line_title, line_pct in
+            line_parameters.items()
+        ])
+    ],
+        value='1'
+    )
 
 
 layout = dbc.Container([
     dbc.Row([
-       dbc.Col([html.Div(income_card)], width=3),
-       dbc.Col([expense_card], width=6),
-       dbc.Col([savings_card], width=3)]),
+       dbc.Col([checking_card], width=2),
+       dbc.Col([income_card], width=4),
+       dbc.Col([expenses_card], width=4),
+       dbc.Col([savings_card], width=2)]),
     html.Br(),
     dbc.Row([
-        dbc.Col([
-            dbc.Card([
-                dbc.CardHeader('Fuel'),
-                dbc.CardBody([dbc.Progress(value='100', label='100/1000', max=1000, color='green')])
-            ])
-        ], width=6)
-    ]),
-
-    dbc.Row([
-        dbc.Col([
-            dbc.Card([
-                dbc.CardHeader('Groceries'),
-                dbc.CardBody([dbc.Progress(value='1500', label='1500/2000', max=2000, color='warning')])
-            ])
-        ], width=6)
-    ]),
-
-    dbc.Row([
-        dbc.Col([
-            dbc.Card([
-                dbc.CardHeader('Clothes'),
-                dbc.CardBody([dbc.Progress(value='1000', label='1000/1000', max=1000, color='danger')])
-            ])
-        ], width=6)
-    ]),
-
-    dbc.Row([
-        dbc.Col([
-            dbc.Card([
-                dbc.CardHeader('Wolt'),
-                dbc.CardBody([dbc.Progress(value='1500', label='1500/1000', max=1000, color='dark')])
-            ])
-        ], width=6)
+        dmc.Accordion([
+            accordion_item('Transportation', 25, {'Trains': 40, 'Planes': 75}),
+            accordion_item("Food", 50, {"Groceries": 40, "Restaurants": 75})],
+        )
     ])
 ], fluid=True)

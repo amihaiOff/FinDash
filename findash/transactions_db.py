@@ -19,7 +19,7 @@ This is the recorded history of the transactions.
 @dataclass
 class TransDBSchema:
     ID: str = 'id'
-    DATE:  datetime = 'date'
+    DATE: datetime = 'date'
     PAYEE: str = 'payee'
     CAT: pd.CategoricalDtype = 'cat'
     MEMO: str = 'memo'
@@ -42,11 +42,11 @@ class TransDBSchema:
         dictionary of non-mandatory cols (keys) to add to trans file to align with
         DB schema along with default values (values)
         """
-        return {cls.CAT:        '',
-                cls.MEMO:       '',
-                cls.ACCOUNT:    None,
-                cls.INFLOW:     0,
-                cls.OUTFLOW:    0,
+        return {cls.CAT: '',
+                cls.MEMO: '',
+                cls.ACCOUNT: None,
+                cls.INFLOW: 0,
+                cls.OUTFLOW: 0,
                 cls.RECONCILED: False}
 
     @classmethod
@@ -94,7 +94,8 @@ class TransRecord(Record):
                  payee: str,
                  cat: str,
                  memo: str,
-                 account,  # todo figure out the circular imports when having Account type
+                 account,
+                 # todo figure out the circular imports when having Account type
                  inflow: float,
                  outflow: float,
                  reconciled: bool,
@@ -112,13 +113,23 @@ class TransRecord(Record):
 
     @property
     def schema_cols(self):
-        return [self.id, self.date, self.payee, self.cat, self.memo, self.account, self.inflow,
+        return [self.id, self.date, self.payee, self.cat, self.memo,
+                self.account, self.inflow,
                 self.outflow, self.reconciled, self.amount]
 
 
 class TransactionsDBParquet:
     def __init__(self):
-        self._db = None
+        self._db = pd.DataFrame()
+
+    def __getitem__(self, item):
+        return self._db.__getitem__(item)
+
+    def __getattr__(self, item):
+        return self._db.__getattr__(item)
+
+    def __setitem__(self, name, value):
+        return self._db.__setitem__(name, value)
 
     def connect(self, db_path: str):
         """
@@ -141,7 +152,8 @@ class TransactionsDBParquet:
         """
         In the case of a parquet db, disconnecting will only save the db
         """
-        raise NotImplementedError('disconnecting from a parquet db is not implemented')
+        raise NotImplementedError(
+            'disconnecting from a parquet db is not implemented')
 
     def save_db(self, months_to_save: List[Tuple[str, str]]) -> None:
         """
@@ -152,7 +164,9 @@ class TransactionsDBParquet:
         for year, month in months_to_save:
             cond1 = self._db[TransDBSchema.DATE].dt.year == int(year)
             cond2 = self._db[TransDBSchema.DATE].dt.month == int(month)
-            self._db[cond1 & cond2].to_parquet(Path(SETTINGS['db']['trans_db_path']) / str(year) / f'{month}.pq')
+            self._db[cond1 & cond2].to_parquet(
+                Path(SETTINGS['db']['trans_db_path']) / str(
+                    year) / f'{month}.pq')
 
     def save_db_from_uuid(self, uuid_list: List[str]) -> None:
         """
@@ -172,7 +186,8 @@ class TransactionsDBParquet:
         """
         return self._db[self._db['id'].isin(uuid_list)]
 
-    def get_data_by_col_val(self, col_val_dict: Dict[str, Any]) -> pd.DataFrame:
+    def get_data_by_col_val(self,
+                            col_val_dict: Dict[str, Any]) -> pd.DataFrame:
         """
         get transactions by column value - supports only intersection of values.
         :param col_val_dict: dict where the keys are the columns and the values are the values
@@ -218,7 +233,8 @@ class TransactionsDBParquet:
         self._db = self._db[~self._db['id'].isin(uuid_list)]
         self.save_db(months)
 
-    def _get_months_from_uuid(self, uuid_lst: List[str]) -> List[Tuple[str, str]]:
+    def _get_months_from_uuid(self, uuid_lst: List[str]) -> List[
+        Tuple[str, str]]:
         """
         get the months of the transactions with the given uuids
         :return: a set of lists of form [year, month]
@@ -250,13 +266,16 @@ class TransactionsDBParquet:
         :return: dataframe with dtypes applied
         """
         df[TransDBSchema.DATE] = pd.to_datetime(df[TransDBSchema.DATE])
-        df[TransDBSchema.RECONCILED] = df[TransDBSchema.RECONCILED].astype(bool)
+        df[TransDBSchema.RECONCILED] = df[TransDBSchema.RECONCILED].astype(
+            bool)
         df[TransDBSchema.INFLOW] = df[TransDBSchema.INFLOW].astype(float)
         df[TransDBSchema.OUTFLOW] = df[TransDBSchema.OUTFLOW].astype(float)
         df[TransDBSchema.AMOUNT] = df[TransDBSchema.AMOUNT].astype(float)
         df[TransDBSchema.CAT] = df[TransDBSchema.CAT].astype('category')
-        df[TransDBSchema.ACCOUNT] = df[TransDBSchema.ACCOUNT].astype('category')
-        df[TransDBSchema.RECONCILED] = df[TransDBSchema.RECONCILED].astype(bool)
+        df[TransDBSchema.ACCOUNT] = df[TransDBSchema.ACCOUNT].astype(
+            'category')
+        df[TransDBSchema.RECONCILED] = df[TransDBSchema.RECONCILED].astype(
+            bool)
 
         return df
 
