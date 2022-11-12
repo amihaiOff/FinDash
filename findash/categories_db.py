@@ -16,7 +16,7 @@ It manages -
 
 
 @dataclass
-class CategoriesDBSchema:
+class CatDBSchema:
     CAT_NAME: str = 'cat_name'
     CAT_GROUP: str = 'cat_group'
     IS_CONSTANT: str = 'is_constant'
@@ -44,14 +44,13 @@ class CatRecord(Record):
 
 
 class CategoriesDB:
-    def __init__(self, config):
-        self.config = config
-        self._db: pd.DataFrame = self._load_db(config)
+    def __init__(self):
+        self._db = pd.DataFrame()
 
     def add_category_by_name(self, category_name: str) -> None:
         if category_name not in self.get_categories():
             self._db = self._db.append(
-                {CategoriesDBSchema.CAT_NAME: category_name},
+                {CatDBSchema.CAT_NAME: category_name},
                 ignore_index=True)
             self._save_db(SETTINGS['cat_db_path'])
         else:
@@ -63,37 +62,39 @@ class CategoriesDB:
 
     def delete_category(self, category_name: str) -> None:
         self._db = self._db[
-            self._db[CategoriesDBSchema.CAT_NAME] != category_name]
+            self._db[CatDBSchema.CAT_NAME] != category_name]
         self._save_db(SETTINGS['cat_db_path'])
 
     def get_category_budget(self, category_name: str) -> float:
         return \
-        self._db[self._db[CategoriesDBSchema.CAT_NAME] == category_name][
-            CategoriesDBSchema.BUDGET].iloc[0]
+        self._db[self._db[CatDBSchema.CAT_NAME] == category_name][
+            CatDBSchema.BUDGET].iloc[0]
 
     def update_category_budget(self, category_name: str,
                                budget: float) -> None:
-        self._db[self._db[CategoriesDBSchema.CAT_NAME] == category_name][
-            CategoriesDBSchema.BUDGET] = budget
+        self._db[self._db[CatDBSchema.CAT_NAME] == category_name][
+            CatDBSchema.BUDGET] = budget
         self._save_db(SETTINGS['cat_db_path'])
 
     def delete_category_budget(self, category_name: str) -> None:
-        self._db[self._db[CategoriesDBSchema.CAT_NAME] == category_name][
-            CategoriesDBSchema.BUDGET] = None
+        self._db[self._db[CatDBSchema.CAT_NAME] == category_name][
+            CatDBSchema.BUDGET] = None
 
     def _save_db(self, db_path):
         self._db.to_parquet(db_path)
 
-    @staticmethod
-    def _load_db(db_path: str) -> pd.DataFrame:
-        return pd.read_parquet(db_path)
+    def load_db(self, db_path: str) -> None:
+        self._db = pd.read_parquet(db_path)
 
     def get_categories(self) -> List[str]:
-        return self._db[CategoriesDBSchema.CAT_NAME].to_list()
+        return self._db[CatDBSchema.CAT_NAME].to_list()
 
-    def get_sections(self):
-        return self._db[CategoriesDBSchema.CAT_GROUP].to_list()
+    def get_group_names(self):
+        return self._db[CatDBSchema.CAT_GROUP].unique().to_list()
+
+    def get_groups(self) -> pd.core.groupby.generic.DataFrameGroupBy:
+        return self._db.groupby(CatDBSchema.CAT_GROUP)
 
     def get_categories_by_section(self, section: str) -> List[str]:
-        return self._db[self._db[CategoriesDBSchema.CAT_GROUP] == section][
-            CategoriesDBSchema.CAT_NAME].to_list()
+        return self._db[self._db[CatDBSchema.CAT_GROUP] == section][
+            CatDBSchema.CAT_NAME].to_list()

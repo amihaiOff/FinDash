@@ -1,5 +1,5 @@
 import dash
-from dash import Dash, dcc, html, dash_table
+from dash import Dash, html
 import dash_bootstrap_components as dbc
 
 
@@ -17,7 +17,6 @@ def setup_pages_container(app):
                          ]),
         html.Br(),
         dash.page_container
-
     ])
 
 

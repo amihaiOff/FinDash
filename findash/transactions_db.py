@@ -22,6 +22,7 @@ class TransDBSchema:
     DATE: datetime = 'date'
     PAYEE: str = 'payee'
     CAT: pd.CategoricalDtype = 'cat'
+    CAT_GROUP: pd.CategoricalDtype = 'cat_group'
     MEMO: str = 'memo'
     ACCOUNT: pd.CategoricalDtype = 'account'
     INFLOW: float = 'inflow'  # if forex trans will show the conversion to ils here
@@ -43,6 +44,7 @@ class TransDBSchema:
         DB schema along with default values (values)
         """
         return {cls.CAT: '',
+                cls.CAT_GROUP: '',
                 cls.MEMO: '',
                 cls.ACCOUNT: None,
                 cls.INFLOW: 0,
@@ -119,17 +121,20 @@ class TransRecord(Record):
 
 
 class TransactionsDBParquet:
-    def __init__(self):
-        self._db = pd.DataFrame()
+    # todo: make it so that performing pd operations (w\ magic funcs) returns
+    #  a TransDBPARQUET object with the operations results in the inner df so
+    #  we have access to all the  classes methods
+    def __init__(self, db: pd.DataFrame = pd.DataFrame()):
+        self._db: pd.DataFrame = db
 
     def __getitem__(self, item):
-        return self._db.__getitem__(item)
+        return TransactionsDBParquet(self._db.__getitem__(item))
 
     def __getattr__(self, item):
         return self._db.__getattr__(item)
 
     def __setitem__(self, name, value):
-        return self._db.__setitem__(name, value)
+        return TransactionsDBParquet(self._db.__setitem__(name, value))
 
     def connect(self, db_path: str):
         """
@@ -178,6 +183,23 @@ class TransactionsDBParquet:
         months = self._get_months_from_uuid(uuid_list)
         self.save_db(months)
 
+    def get_data_by_group(self, group: str):
+        """
+        get data by group
+        :param group: group to get data from
+        :return: dataframe of data
+        """
+        return TransactionsDBParquet(
+            self._db[self._db[TransDBSchema.CAT_GROUP] == group])
+
+    def get_data_by_cat(self, cat: str) -> pd.DataFrame:
+        """
+        get data by category
+        :param cat: category to get data from
+        :return: dataframe of data
+        """
+        return self._db[self._db[TransDBSchema.CAT] == cat]
+
     def get_data_by_id(self, uuid_list: List[str]) -> pd.DataFrame:
         """
         get transactions by id
@@ -190,8 +212,8 @@ class TransactionsDBParquet:
                             col_val_dict: Dict[str, Any]) -> pd.DataFrame:
         """
         get transactions by column value - supports only intersection of values.
-        :param col_val_dict: dict where the keys are the columns and the values are the values
-                             in the columns. Supports only one value per column
+        :param col_val_dict: dict where the keys are the columns and the values
+               are the values in the columns. Supports only one value per column
         :return: dataframe of transactions
         """
         db_tmp = self._db

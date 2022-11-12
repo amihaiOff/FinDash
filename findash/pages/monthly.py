@@ -1,4 +1,5 @@
 from typing import Dict
+from datetime import datetime
 
 import dash
 from dash import html
@@ -7,7 +8,25 @@ import dash_mantine_components as dmc
 
 import pandas as pd
 
+from main import CAT_DB, TRANS_DB
+from categories_db import CatDBSchema
+from transactions_db import TransDBSchema
+
 dash.register_page(__name__)
+
+
+def create_current_month_trans_db() -> pd.DataFrame:
+    """
+    create a transactions database for the current month
+    :return:
+    """
+    current_month = datetime.now().strftime('%Y-%m')
+    return TRANS_DB[TRANS_DB[TransDBSchema.DATE].dt.strftime('%Y-%m') ==
+                    current_month]
+
+
+CURR_TRANS_DB = create_current_month_trans_db()
+
 
 dummy_table = pd.DataFrame([['2022-01-01', 'מכולת', 0, 200],
                             ['2022-01-01', 'ספר', 0, 20]],
@@ -59,19 +78,25 @@ savings_card = dbc.Card([
                 outline=True,
                 )
 
+"""
+Categories
+"""
 
-def content(title,
-            pct,
-            size='lg',
-            color='green',
-            text_weight=500):
+
+def cat_content(title: str,
+                usage: float,
+                cat_budget: float,
+                size: str = 'lg',
+                color: str = 'green',
+                text_weight=500):
     return dmc.Grid(
         children=[
             dmc.Col(dmc.Text(f"{title}", weight=text_weight), span=2),
-            dmc.Col(dmc.Text(f"{pct}% budget used", align="center"), span=2),
-            dmc.Col(dmc.Progress(value=pct, label=f"{pct}/1000", size=size,
-                                 color=color), span=3),
-            dmc.Col(dmc.Text(f'Remaining: 300'), span=2)
+            dmc.Col(dmc.Text(f"{int(usage*100/cat_budget)}% budget used",
+                             align="center"), span=2),
+            dmc.Col(dmc.Progress(value=usage, label=f"{usage}/{cat_budget}",
+                                 size=size, color=color), span=3),
+            dmc.Col(dmc.Text(f'Remaining: {cat_budget-usage}'), span=2)
         ],
         gutter="xs",
 )
@@ -79,17 +104,37 @@ def content(title,
 
 def accordion_item(main_title: str,
                    main_usage: int,
-                   line_parameters: Dict[str, int]):
+                   main_budget: float,
+                   cat_stats: Dict[str, int]):
     return dmc.AccordionItem([
-        dmc.AccordionControl(content(main_title, main_usage, size='xl',
-                                     color='red', text_weight=700)),
+        dmc.AccordionControl(cat_content(main_title, main_usage, main_budget,
+                                         size='xl', color='red',
+                                         text_weight=700)),
         dmc.AccordionPanel([
-            content(line_title, line_pct) for line_title, line_pct in
-            line_parameters.items()
+            cat_content(title, usage, budget) for title, (usage, budget) in
+            cat_stats.items()
         ])
     ],
         value='1'
     )
+
+
+def create_accordion_items():
+    accordion_items = []
+    for group_name, group in CAT_DB.get_groups():
+        group_budget = group[CatDBSchema.BUDGET].sum()
+        group_usage = CURR_TRANS_DB.get_data_by_group(group_name)[
+            TransDBSchema.AMOUNT].sum()
+
+        cat_stats = {}
+
+        # todo - sum trans over each cat and divide by cat budget
+        categories = dict(zip(group.loc[:, CatDBSchema.CAT_NAME],
+                              group.loc[:, CatDBSchema.BUDGET]))
+        accordion_items.append(accordion_item(group_name, group_usage,
+                                              group_budget, categories))
+
+    return accordion_items
 
 
 layout = dbc.Container([
@@ -100,9 +145,7 @@ layout = dbc.Container([
        dbc.Col([savings_card], width=2)]),
     html.Br(),
     dbc.Row([
-        dmc.Accordion([
-            accordion_item('Transportation', 25, {'Trains': 40, 'Planes': 75}),
-            accordion_item("Food", 50, {"Groceries": 40, "Restaurants": 75})],
+        dmc.Accordion(create_accordion_items(),
         )
     ])
 ], fluid=True)
