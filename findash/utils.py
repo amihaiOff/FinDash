@@ -12,3 +12,4 @@ def get_settings() -> Dict[str, Any]:
 
 
 SETTINGS = get_settings()
+SHEKEL_SYM = '₪'

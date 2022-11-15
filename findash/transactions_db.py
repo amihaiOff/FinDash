@@ -121,9 +121,6 @@ class TransRecord(Record):
 
 
 class TransactionsDBParquet:
-    # todo: make it so that performing pd operations (w\ magic funcs) returns
-    #  a TransDBPARQUET object with the operations results in the inner df so
-    #  we have access to all the  classes methods
     def __init__(self, db: pd.DataFrame = pd.DataFrame()):
         self._db: pd.DataFrame = db
 
@@ -135,6 +132,9 @@ class TransactionsDBParquet:
 
     def __setitem__(self, name, value):
         return TransactionsDBParquet(self._db.__setitem__(name, value))
+
+    def __eq__(self, other):
+        return self._db.__eq__(other)
 
     def connect(self, db_path: str):
         """
@@ -221,6 +221,16 @@ class TransactionsDBParquet:
             db_tmp = db_tmp[db_tmp[col] == val]
 
         return db_tmp
+
+    def get_current_month_trans(self):
+        """
+        get data of current month
+        :return: dataframe of data
+        """
+        current_month = datetime.now().strftime('%Y-%m')
+        curr_trans = self._db[self._db[TransDBSchema.DATE].dt.strftime('%Y-%m')
+                              == current_month]
+        return TransactionsDBParquet(curr_trans)
 
     def insert_data(self, df: pd.DataFrame) -> None:
         """

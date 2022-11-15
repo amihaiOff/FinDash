@@ -4,6 +4,8 @@ from typing import Dict
 
 from transactions_db import TransDBSchema
 
+CHECKING_ACCOUNTS = []
+
 
 class Institution(Enum):
     FIBI = 'fibi'
@@ -35,9 +37,10 @@ class ColMapping:
 
 
 class Account(ABC):
-    def __init__(self, name: str, institution: Institution):
+    institution = None  # define in subclass
+
+    def __init__(self, name: str):
         self._name = name
-        self._institution = institution
 
     @abstractmethod
     def get_col_mapping(self) -> ColMapping:
@@ -49,7 +52,7 @@ class Account(ABC):
 
     @property
     def institution(self):
-        return self._institution
+        return self.institution
 
     @property
     @abstractmethod
@@ -58,8 +61,11 @@ class Account(ABC):
 
 
 class FIBI(Account):
+    is_checking = True
+    institution = Institution.FIBI
+
     def __init__(self, name: str):
-        super().__init__(name, Institution.FIBI)
+        super().__init__(name)
 
     def get_col_mapping(self) -> ColMapping:
         col_mapping = {
@@ -74,8 +80,11 @@ class FIBI(Account):
 
 
 class CAL(Account):
+    is_checking = False
+    institution = Institution.CAL
+
     def __init__(self, name: str):
-        super().__init__(name, Institution.CAL)
+        super().__init__(name)
 
     def get_col_mapping(self) -> ColMapping:
         col_mapping = {
@@ -95,8 +104,11 @@ class CAL(Account):
 
 
 class OZ(Account):
+    is_checking = True
+    institution = Institution.OZ
+
     def __init__(self, name: str):
-        super().__init__(name, Institution.OZ)
+        super().__init__(name)
 
     def get_col_mapping(self) -> ColMapping:
         col_mapping = {
@@ -108,3 +120,14 @@ class OZ(Account):
     @property
     def inflow_sign(self) -> InflowSign:
         pass  # todo
+
+
+def init_accounts():
+    import importlib, inspect
+    for name, cls in inspect.getmembers(importlib.import_module("accounts"),
+                                        inspect.isclass):
+        if cls.__module__ == 'accounts':
+            if issubclass(cls, Account) and cls is not Account:
+                if cls.is_checking:
+                    CHECKING_ACCOUNTS.append(cls)
+

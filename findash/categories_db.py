@@ -98,3 +98,6 @@ class CategoriesDB:
     def get_categories_by_section(self, section: str) -> List[str]:
         return self._db[self._db[CatDBSchema.CAT_GROUP] == section][
             CatDBSchema.CAT_NAME].to_list()
+
+    def get_total_budget(self):
+        return self._db[CatDBSchema.BUDGET].sum()
