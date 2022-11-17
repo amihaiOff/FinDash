@@ -11,7 +11,7 @@ def get_dummy_values():
     date - running dates from 2022-01-01
     :return:
     """
-    account = ['fibi', 'cash', 'cal']
+    account = ['fibi', 'cash', 'cal', 'oz']
     category = {'food': ['wolt', 'groceries', 'junk'],
                   'transportations': ['fuel', 'insurance'],
                   'bills': ['water', 'gas', 'arnona']}

@@ -1,9 +1,11 @@
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List
 from datetime import datetime
 
 import dash
+import numpy as np
 from dash import html
 import dash_bootstrap_components as dbc
+from dash import dcc
 import dash_mantine_components as dmc
 
 import pandas as pd
@@ -11,8 +13,8 @@ import pandas as pd
 from main import CAT_DB, TRANS_DB
 from categories_db import CatDBSchema
 from transactions_db import TransDBSchema
-from accounts import CHECKING_ACCOUNTS
-from utils import SHEKEL_SYM
+from accounts import CHECKING_ACCOUNTS, NON_CHECKING_ACCOUNTS
+from utils import SHEKEL_SYM, conditional_coloring
 
 dash.register_page(__name__)
 
@@ -20,7 +22,7 @@ dash.register_page(__name__)
 CURR_TRANS_DB = TRANS_DB.get_current_month_trans()
 
 
-def _calculate_checking_total(last=False):
+def _calculate_checking_total(last=False) -> float:
     """
     sum of all inflow
     :param last: if True, sum only This month's inflow
@@ -42,42 +44,120 @@ def _pct_budget_used():
     curr_expenses = _calculate_checking_total(last=True)
     curr_budget = CAT_DB.get_budget()
     return curr_expenses * 100 / curr_budget
-# def _checking_m_over_m():
-#     curr_income = CURR_TRANS_DB[TransDBSchema.INFLOW].sum()
-#     prev_month = datetime.date().strftime()
-#     prev_income = TRANS_DB[TRANS_DB[TransDBSchema.DATE] == prev_month][
-#         TransDBSchema.INFLOW.su
-
-checking_card = dbc.Card([
-                dbc.CardHeader('Checking'),
-                html.H2(f"{_calculate_checking_total():.2f}{SHEKEL_SYM}"),
-                html.P(f"+12% MoM(?)", style={'color': 'green'})],
-                body=True)
-
-income_card = dbc.Card([
-                    dbc.CardHeader("Last Income"),
-                    html.H2(f"{_calculate_checking_total(last=True):.2f}{SHEKEL_SYM}"),
-                    html.P(f"{_curr_expenses_pct():.0f}% income used",
-                           style={'color': 'green'}),
-                ],
-                    color='light',
-                    body=True)
-
-expenses_card = dbc.Card([
-                    dbc.CardHeader("Expenses"),
-                    html.H2(f'{_calculate_checking_total(True)}{SHEKEL_SYM}'),
-                    html.P(f"{_curr_expenses_pct():.0f}% income used"),
-                ],
-                    color="light",
-                    body=True)
 
 
-savings_card = dbc.Card([
-                dbc.CardHeader("Savings"),
-                html.H2(f"2000{SHEKEL_SYM}")],
-                body=True,
-                outline=True,
-                )
+def _get_balance_per_account_for_popup():
+    per_account = CURR_TRANS_DB.groupby(TransDBSchema.ACCOUNT)[
+        TransDBSchema.INFLOW].sum()
+    checking_str = [acc.institution.value for acc in CHECKING_ACCOUNTS]
+    checking_only = per_account[per_account.index.isin(checking_str)]
+    string_rep = ''
+    for account, acc_sum in checking_only.items():
+        string_rep += f'**{account}**: {acc_sum}\n'
+    return string_rep[:-1]
+
+
+def _get_income_per_account_popup():
+    per_account = CURR_TRANS_DB.groupby(TransDBSchema.ACCOUNT)[
+        TransDBSchema.OUTFLOW].sum()
+    non_checking_str = [acc.institution.value for acc in NON_CHECKING_ACCOUNTS]
+    non_checking_only = per_account[per_account.index.isin(non_checking_str)]
+    string_rep = ''
+    for account, acc_sum in non_checking_only.items():
+        string_rep += f'**{account}**: {acc_sum}\n'
+    return string_rep[:-1]
+
+
+def _create_banner_card(title: str,
+                        value: float,
+                        subtitle: str,
+                        color: str,
+                        id: str) -> dbc.Card:
+    return dbc.Card([
+        dbc.CardHeader(title),
+        html.H2(f"{value}{SHEKEL_SYM}"),
+        html.P(subtitle, style={'color': color})],
+        # color='light',
+        body=True,
+        id=id)
+
+
+def _create_checking_card():
+    checking_total = _calculate_checking_total()
+
+    checking_card = dbc.Card([
+                    dbc.CardHeader('Checking'),
+                    html.H2(f"{checking_total:.0f}{SHEKEL_SYM}"),
+                    html.P(f"+12% MoM(?)", style={'color': 'green'})], # todo - think of what the subtitle needs to be
+                    body=True, id='checking-card')
+
+    checking_popover = dbc.Popover([
+        dbc.PopoverHeader('Breakdown'),
+        dbc.PopoverBody([
+            dcc.Markdown(_get_balance_per_account_for_popup(),
+                         style={'white-space': 'pre'})
+        ])],
+        target='checking-card',
+        trigger='hover',
+        placement='bottom'
+
+    )
+
+    return checking_card, checking_popover
+
+
+def _create_income_card() -> Tuple[dbc.Card, dbc.Popover]:
+    income = _calculate_checking_total(last=True)
+    curr_expenses_pct = _curr_expenses_pct()
+    color = conditional_coloring(curr_expenses_pct, {'green': (0, np.inf),
+                                                     'red': (-np.inf, 0)})
+    card = _create_banner_card(title='Last Income',
+                               value=income,
+                               subtitle=f"{curr_expenses_pct:.0f}% income used",
+                               color=color,
+                               id='income-card')
+
+    income_popover = dbc.Popover([
+        dbc.PopoverHeader('Breakdown'),
+        dbc.PopoverBody([
+            dcc.Markdown(_get_income_per_account_popup(),
+                         style={'white-space': 'pre'})
+        ])],
+        target='income-card',
+        trigger='hover',
+        placement='bottom'
+    )
+    return card, income_popover
+
+
+def _create_expenses_card():
+    expenses = _calculate_checking_total(True)
+    curr_expenses_pct = _curr_expenses_pct()
+    color = conditional_coloring(curr_expenses_pct, {
+        'green': (0, np.inf),
+        'red': (-np.inf, 0)
+    })
+    return _create_banner_card(title="Expenses",
+                               value=expenses,
+                               subtitle=f"{curr_expenses_pct:.0f}% income used",
+                               color=color,
+                               id='expenses-card'
+                               )
+
+
+def _create_savings_card():
+    return _create_banner_card(title='Savings',
+                               value=2000,
+                               subtitle=f'Previous month 1000',
+                               color='green',
+                               id='savings-card'
+                               )
+
+
+def _create_notif_card():
+    return dbc.Card([
+        html.H2('Notifications')
+    ])
 
 
 """
@@ -87,7 +167,7 @@ LOW_USAGE_THR = 85
 HIGH_USAGE_THR = 100
 
 
-def conditional_coloring(usage_pct: float):
+def conditional_c2oloring(usage_pct: float):
     if usage_pct < LOW_USAGE_THR:
         return 'green'
     elif LOW_USAGE_THR <= usage_pct < HIGH_USAGE_THR:
@@ -102,7 +182,11 @@ def cat_content(title: str,
                 size: str = 'lg',
                 text_weight=500):
     usage_pct = int(usage*100/cat_budget)
-    color = conditional_coloring(usage_pct)
+    color = conditional_coloring(usage_pct, {
+        'green': (0, LOW_USAGE_THR),
+        'yellow': (LOW_USAGE_THR, HIGH_USAGE_THR),
+        'red': (HIGH_USAGE_THR, np.inf)
+    })
     progress_val = min(100, usage_pct)
     return dmc.Grid(
         children=[
@@ -163,10 +247,11 @@ def create_accordion_items():
 
 layout = dbc.Container([
     dbc.Row([
-       dbc.Col([checking_card], width=2),
-       dbc.Col([income_card], width=2),
-       dbc.Col([expenses_card], width=2),
-       dbc.Col([savings_card], width=2)]),
+       dbc.Col(_create_checking_card(), width=2),
+       dbc.Col(_create_income_card(), width=2),
+       dbc.Col(_create_expenses_card(), width=2),
+       dbc.Col(_create_savings_card(), width=2),
+       dbc.Col(_create_notif_card(), width=4)]),
     html.Br(),
     dbc.Row([
         dmc.Accordion(create_accordion_items())

@@ -66,8 +66,7 @@ class CategoriesDB:
         self._save_db(SETTINGS['cat_db_path'])
 
     def get_category_budget(self, category_name: str) -> float:
-        return \
-        self._db[self._db[CatDBSchema.CAT_NAME] == category_name][
+        return self._db[self._db[CatDBSchema.CAT_NAME] == category_name][
             CatDBSchema.BUDGET].iloc[0]
 
     def update_category_budget(self, category_name: str,

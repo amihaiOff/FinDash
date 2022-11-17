@@ -5,6 +5,7 @@ from typing import Dict
 from transactions_db import TransDBSchema
 
 CHECKING_ACCOUNTS = []
+NON_CHECKING_ACCOUNTS = []
 
 
 class Institution(Enum):
@@ -130,4 +131,6 @@ def init_accounts():
             if issubclass(cls, Account) and cls is not Account:
                 if cls.is_checking:
                     CHECKING_ACCOUNTS.append(cls)
+                else:
+                    NON_CHECKING_ACCOUNTS.append(cls)
 
