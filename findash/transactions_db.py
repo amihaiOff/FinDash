@@ -136,6 +136,12 @@ class TransactionsDBParquet:
     def __eq__(self, other):
         return self._db.__eq__(other)
 
+    def __ge__(self, other):
+        return self._db.__ge__(other)
+
+    def __le__(self, other):
+        return self._db.__le__(other)
+
     def connect(self, db_path: str):
         """
         load parquet files of transactions
@@ -145,9 +151,13 @@ class TransactionsDBParquet:
         root_path = Path(db_path)
 
         pq_files = []
-        for folder in root_path.glob('*'):
-            for file in folder.iterdir():
-                pq_files.append(pd.read_parquet(file))
+        for item in root_path.glob('*'):
+            if item.is_dir():
+                for file in item.iterdir():
+                    pq_files.append(pd.read_parquet(file))
+            else:
+                if item.name.endswith('pq'):
+                    pq_files.append(pd.read_parquet(item))
 
         if len(pq_files) == 0:
             self._db = pd.DataFrame()
@@ -166,14 +176,20 @@ class TransactionsDBParquet:
         :param months_to_save: list of tuples of form (year, month)
         :return:
         """
+        if len(months_to_save) == 0:
+            self._save_no_date_db()
+
+        trans_db_path = Path(SETTINGS['db']['trans_db_path'])
         for year, month in months_to_save:
+            year_dir = trans_db_path / str(year)
+            if not year_dir.exists():
+                year_dir.mkdir()
+
             cond1 = self._db[TransDBSchema.DATE].dt.year == int(year)
             cond2 = self._db[TransDBSchema.DATE].dt.month == int(month)
-            self._db[cond1 & cond2].to_parquet(
-                Path(SETTINGS['db']['trans_db_path']) / str(
-                    year) / f'{month}.pq')
+            self._db[cond1 & cond2].to_parquet(year_dir / f'{month}.pq')
 
-    def save_db_from_uuid(self, uuid_list: List[str]) -> None:
+    def _save_db_from_uuid(self, uuid_list: List[str]) -> None:
         """
         given a list of uuids, extracts the transaction months and saves the relevant parquet
         files
@@ -182,6 +198,14 @@ class TransactionsDBParquet:
         """
         months = self._get_months_from_uuid(uuid_list)
         self.save_db(months)
+
+    def _save_no_date_db(self,) -> None:
+        """
+        saves transactions with no date to a parquet file for transactions with
+         no date
+        """
+        self._db[self._db[TransDBSchema.DATE].isnull()].to_parquet(
+            Path(SETTINGS['db']['trans_db_path']) / 'no_date.pq')
 
     def get_data_by_group(self, group: str):
         """
@@ -241,29 +265,36 @@ class TransactionsDBParquet:
         df = self._add_uuids(df)
         df = self._apply_dtypes(df)
         self._db = pd.concat([self._db, df])
-        self.save_db_from_uuid(df['id'].to_list())
+        self._save_db_from_uuid(df['id'].to_list())
 
-    def insert_record(self, record: TransRecord):
+    def add_blank_row(self):
         """
-        insert a record to the db
+        when adding a new transaction, add a blank row to the db which will
+        probably be edited and populated later
         :param record: record to insert
         :return:
         """
-        self._db = pd.concat([self._db, record.to_df()], ignore_index=True)
-        self.save_db_from_uuid([record.id])
+        uuid = create_uuid()
+        num_cols_wo_id = self._db.shape[1] - 1
+        blank_row = pd.DataFrame([uuid] + [None] * num_cols_wo_id,
+                                 index=self._db.columns)
+        self._db = pd.concat([blank_row.T, self._db])
 
-    def update_data(self):
-        pass
+        self._save_db_from_uuid([uuid])
 
-    def delete_data(self, uuid_list: List[str]) -> None:
+    def remove_row_with_id(self, id: str):
         """
-        delete transactions from the db
-        :param uuid_list: list of uuids
+        remove row with id
+        :param id: id of row to remove
         :return:
         """
-        months = self._get_months_from_uuid(uuid_list)
-        self._db = self._db[~self._db['id'].isin(uuid_list)]
+        months = self._get_months_from_uuid([id])
+        self._db = self._db[self._db['id'] != id]
         self.save_db(months)
+
+    def update_data(self, col_name: str, index: int, value: Any) -> None:
+        self._db.loc[index, col_name] = value
+        self._save_db_from_uuid([self._db.loc[index, 'id']])
 
     def _get_months_from_uuid(self, uuid_lst: List[str]) -> List[
         Tuple[str, str]]:
@@ -273,7 +304,11 @@ class TransactionsDBParquet:
         """
         months = set()
         for uuid in uuid_lst:
-            date = self._db[self._db['id'] == uuid][TransDBSchema.DATE].iloc[0]
+            date = self._db[self._db['id'] == uuid][TransDBSchema.DATE]
+            if date.isnull().any():
+                return []
+
+            date = date.iloc[0]
             months.add((date.year, date.month))
 
         return list(months)

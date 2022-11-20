@@ -1,7 +1,10 @@
+from typing import List
+
 import dash
 import pandas as pd
 from dash import State, html, dash_table, dcc, Input, Output
 import dash_bootstrap_components as dbc
+from dash.exceptions import PreventUpdate
 
 from main import TRANS_DB
 from transactions_db import TransDBSchema
@@ -223,18 +226,101 @@ def add_row(n_clicks, rows, columns):
     return rows
 
 
+def _add_or_remove_row(df: pd.DataFrame, df_previous: pd.DataFrame):
+    """
+    The users added or removed a row from the trans table -> update the db
+    :param df:
+    :param df_previous:
+    :return:
+    """
+    if len(df) > len(df_previous):
+        # user added a row
+        TRANS_DB.add_blank_row()
+    else:
+        removed_id = (set(df_previous.id) - set(df.id)).pop()
+        TRANS_DB.remove_row_with_id(removed_id)
+
+
+def _apply_changes_to_trans_db(changes: List[dict]):
+    """
+    given a dict of changes the user made in trans table. apply them to trans
+    db
+    :param changes: dict with keys: index, column_name, previous_value,
+                                    current_value
+    :return:
+    """
+    for change in changes:
+        ind, col_name = change['index'], change['column_name']
+        prev_val = change['previous_value']
+        if TRANS_DB[col_name].iloc[ind] != prev_val:
+            raise ValueError('mismatch between prev_value and db value when'
+                             'trying to apply changes')
+        if col_name == TransDBSchema.DATE and prev_val == '':
+            pass
+        TRANS_DB.update_data(col_name=col_name, index=ind,
+                             value=change['current_value'])
+
+
 @dash.callback(
     Output(TransIDs.PLACEDHOLDER, 'children'),
-    Input(TransIDs.TRANS_TBL, 'active_cell'),
-    Input(TransIDs.TRANS_TBL, 'data'),
+    Input(TransIDs.TRANS_TBL, "data"),
+    Input(TransIDs.TRANS_TBL, "data_previous"),
     config_prevent_initial_callbacks=True
 )
-def update_trans_df(active_cell, data):
-    print(active_cell)
-    print('##################################')
-    # print(data)
-    row, col_name = active_cell['row'], active_cell['column_id']
-    # df_row = TRANS_DB[TRANS_DB.id == row_id]
-    print(data[row][col_name])
-    # df_cell = df_row.loc[0, col_name]
+def diff_dashtable(data, data_previous, row_id_name=None):
+    """Generate a diff of Dash DataTable data.
+
+    Modified from: https://community.plotly.com/t/detecting-changed-cell-in-editable-datatable/26219/2
+
+    Parameters
+    ----------
+    data: DataTable property (https://dash.plot.ly/datatable/reference)
+        The contents of the table (list of dicts)
+    data_previous: DataTable property
+        The previous state of `data` (list of dicts).
+
+    Returns
+    -------
+    A list of dictionaries in form of [{row_id_name:, column_name:, current_value:,
+        previous_value:}]
+    """
+    df, df_previous = pd.DataFrame(data=data), pd.DataFrame(data_previous)
+
+    if row_id_name is not None:
+        # If using something other than the index for row id's, set it here
+        for _df in [df, df_previous]:
+            _df = _df.set_index(row_id_name)
+    else:
+        row_id_name = "index"
+
+    if len(df) != len(df_previous):
+        return _add_or_remove_row(df, df_previous)
+
+    # Pandas/Numpy says NaN != NaN, so we cannot simply compare the dataframes.  Instead we can either replace the
+    # NaNs with some unique value (which is fastest for very small arrays, but doesn't scale well) or we can do
+    # (from https://stackoverflow.com/a/19322739/5394584):
+    # Mask of elements that have changed, as a dataframe.  Each element indicates True if df!=df_prev
+    df_mask = ~((df == df_previous) | ((df != df) & (df_previous != df_previous)))
+
+    # ...and keep only rows that include a changed value
+    df_mask = df_mask.loc[df_mask.any(axis=1)]
+
+    changes = []
+    for idx, row in df_mask.iterrows():
+        row_id = row.name
+
+        # Act only on columns that had a change
+        row = row[row.eq(True)]
+        for change in row.iteritems():
+            changes.append(
+                {
+                    row_id_name: row_id,
+                    "column_name": change[0],
+                    "current_value": df.at[row_id, change[0]],
+                    "previous_value": df_previous.at[row_id, change[0]],
+                }
+            )
+    print(changes)
+    _apply_changes_to_trans_db(changes)
+
 

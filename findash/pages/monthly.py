@@ -77,9 +77,11 @@ def _create_banner_card(title: str,
         dbc.CardHeader(title),
         html.H2(f"{value}{SHEKEL_SYM}"),
         html.P(subtitle, style={'color': color})],
-        # color='light',
         body=True,
-        id=id)
+        id=id,
+        outline=True,
+        color='light'
+    )
 
 
 def _create_checking_card():
@@ -89,7 +91,11 @@ def _create_checking_card():
                     dbc.CardHeader('Checking'),
                     html.H2(f"{checking_total:.0f}{SHEKEL_SYM}"),
                     html.P(f"+12% MoM(?)", style={'color': 'green'})], # todo - think of what the subtitle needs to be
-                    body=True, id='checking-card')
+                    body=True,
+                    id='checking-card',
+                    color='light',
+                    outline=True
+    )
 
     checking_popover = dbc.Popover([
         dbc.PopoverHeader('Breakdown'),

@@ -2,3 +2,4 @@ db:
   trans_db_path: /Users/amihaio/Documents/personal/FinDash/dbs/trans_db
   cat_db_path: /Users/amihaio/Documents/personal/FinDash/dbs/cat_db.pq
   auto_cat_db_path: /Users/amihaio/Documents/personal/FinDash/dbs/auto_cat_db.pq
+

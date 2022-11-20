@@ -1,3 +1,4 @@
+import datetime
 import uuid
 import yaml
 from typing import Any, Dict, Tuple
@@ -25,6 +26,29 @@ def conditional_coloring(value: float,
         if lower <= value < upper:
             return color
     raise ValueError(f'Value {value} not in any range')
+
+
+def validate_date(date: str) -> bool:
+    if date == '':
+        return False
+    sep = '-' if '-' in date else '/'
+    date_parts = date.split(sep)
+    if len(date_parts) < 3:
+        return False
+
+    try:
+        datetime.datetime(year=int(date_parts[0]),
+                          month=int(date_parts[1]),
+                          day=int(date_parts[2]))
+        return True
+
+    except:
+        return False
+
+
+def month_num_to_str(month_num: int) -> str:
+    """ convert month number to month name """
+    return datetime.date(1900, month_num, 1).strftime('%B')
 
 
 SETTINGS = get_settings()
