@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Tuple
 
 import pandas as pd
 
-# from accounts import Account
+from categories_db import CategoriesDB
 from db import Record
 from utils import SETTINGS, create_uuid
 
@@ -121,8 +121,9 @@ class TransRecord(Record):
 
 
 class TransactionsDBParquet:
-    def __init__(self, db: pd.DataFrame = pd.DataFrame()):
+    def __init__(self, cat_db: CategoriesDB, db: pd.DataFrame = pd.DataFrame()):
         self._db: pd.DataFrame = db
+        self._cat_db = cat_db
 
     def __getitem__(self, item):
         return TransactionsDBParquet(self._db.__getitem__(item))
@@ -264,14 +265,27 @@ class TransactionsDBParquet:
         """
         df = self._add_uuids(df)
         df = self._apply_dtypes(df)
+        df = self._apply_categories(df)
         self._db = pd.concat([self._db, df])
         self._save_db_from_uuid(df['id'].to_list())
+
+    def _apply_categories(self, df: pd.DataFrame):
+        """
+        add categories to new inserted transactions
+        :param df: new transactions
+        :return:
+        """
+        for ind, row in df.iterrows():
+            payee = row[TransDBSchema.PAYEE]
+            cat, group = self._cat_db.get_cat_and_group_by_payee(payee)
+            if cat is not None:
+                df.iloc[ind, TransDBSchema.CAT] = cat
+                df.iloc[ind, TransDBSchema.CAT_GROUP] = group
 
     def add_blank_row(self):
         """
         when adding a new transaction, add a blank row to the db which will
         probably be edited and populated later
-        :param record: record to insert
         :return:
         """
         uuid = create_uuid()

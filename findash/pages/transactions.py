@@ -6,8 +6,9 @@ from dash import State, html, dash_table, dcc, Input, Output
 import dash_bootstrap_components as dbc
 from dash.exceptions import PreventUpdate
 
-from main import TRANS_DB
+from main import TRANS_DB, CAT_DB
 from transactions_db import TransDBSchema
+from categories_db import CatDBSchema
 from element_ids import TransIDs
 
 
@@ -222,7 +223,6 @@ def add_row(n_clicks, rows, columns):
     """
     if n_clicks > 0:
         rows.insert(0, {c['id']: '' for c in columns})
-    # todo add new row to trans_df
     return rows
 
 
@@ -259,6 +259,11 @@ def _apply_changes_to_trans_db(changes: List[dict]):
             pass
         TRANS_DB.update_data(col_name=col_name, index=ind,
                              value=change['current_value'])
+
+        if col_name == CatDBSchema.CAT_NAME:
+            # todo add popup asking if to change for all transactions - if so
+            #  update payee2cat, cat2payee
+            pass
 
 
 @dash.callback(

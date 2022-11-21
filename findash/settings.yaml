@@ -1,5 +1,7 @@
 db:
   trans_db_path: /Users/amihaio/Documents/personal/FinDash/dbs/trans_db
-  cat_db_path: /Users/amihaio/Documents/personal/FinDash/dbs/cat_db.pq
+  cat_db_path: /Users/amihaio/Documents/personal/FinDash/dbs/cat_db/cat_db.pq
+  payee2cat_db_path: /Users/amihaio/Documents/personal/FinDash/dbs/payee2cat_db/payee2cat_db.json
+  cat2payee_db_path: /Users/amihaio/Documents/personal/FinDash/dbs/cat2payee_db/cat2payee_db.json
   auto_cat_db_path: /Users/amihaio/Documents/personal/FinDash/dbs/auto_cat_db.pq
 

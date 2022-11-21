@@ -173,15 +173,6 @@ LOW_USAGE_THR = 85
 HIGH_USAGE_THR = 100
 
 
-def conditional_c2oloring(usage_pct: float):
-    if usage_pct < LOW_USAGE_THR:
-        return 'green'
-    elif LOW_USAGE_THR <= usage_pct < HIGH_USAGE_THR:
-        return 'yellow'
-    else:
-        return 'red'
-
-
 def cat_content(title: str,
                 usage: float,
                 cat_budget: float,
@@ -223,7 +214,7 @@ def accordion_item(group_title: str,
             cat_stats.items()
         ])
     ],
-        value='1'
+        value=str(np.random.randint(1000))
     )
 
 
@@ -260,6 +251,7 @@ layout = dbc.Container([
        dbc.Col(_create_notif_card(), width=4)]),
     html.Br(),
     dbc.Row([
-        dmc.Accordion(create_accordion_items())
+        dmc.AccordionMultiple(
+            children=create_accordion_items())
     ])
 ], fluid=True)

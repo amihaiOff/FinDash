@@ -9,8 +9,8 @@ from dummy_data import TransGenerator, generate_catdb
 from accounts import init_accounts
 
 
-def setup_trans_db():
-    trans_db = TransactionsDBParquet()
+def setup_trans_db(cat_db: CategoriesDB):
+    trans_db = TransactionsDBParquet(cat_db)
     # trans_db.connect(SETTINGS['db']['trans_db_path'])
     trans_gen = TransGenerator(60)
     transactions = trans_gen.generate()
@@ -32,7 +32,7 @@ def general_setup():
 
 
 CAT_DB = setup_cat_db()
-TRANS_DB = setup_trans_db()
+TRANS_DB = setup_trans_db(CAT_DB)
 
 if __name__ == "__main__":
     general_setup()
