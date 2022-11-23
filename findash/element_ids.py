@@ -5,6 +5,9 @@ class TransIDs:
     DATE_PICKER = 'date_picker'
     ADD_ROW_BTN = 'add_row_btn'
     PLACEDHOLDER = 'placeholder'
+    MODAL_CAT_CHANGE = 'modal_cat_change'
+    MODAL_CAT_CHANGE_YES = 'modal-cat-change-yes'
+    MODAL_CAT_CHANGE_NO = 'modal-cat-change-no'
 
 
 class MonthlyIDs:

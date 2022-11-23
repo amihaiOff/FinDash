@@ -1,8 +1,9 @@
-from typing import List
+from typing import List, Optional
 
 import dash
+import dash_mantine_components as dmc
 import pandas as pd
-from dash import State, html, dash_table, dcc, Input, Output
+from dash import State, html, dash_table, dcc, Input, Output, ctx
 import dash_bootstrap_components as dbc
 from dash.exceptions import PreventUpdate
 
@@ -10,6 +11,10 @@ from main import TRANS_DB, CAT_DB
 from transactions_db import TransDBSchema
 from categories_db import CatDBSchema
 from element_ids import TransIDs
+
+# for filtering the trans table
+START_DATE_DEFAULT = '1900-01-01'
+END_DATE_DEFAULT = '2100-01-01'
 
 
 def setup_table_cols():
@@ -52,11 +57,40 @@ def setup_table_cols():
     return trans_df_cols
 
 
+def _create_category_change_modal() -> dmc.Modal:
+    """
+    Creates a modal for changing the category of a transaction
+    :return:
+    """
+    return dmc.Modal(
+        title="Change Category",
+        id=TransIDs.MODAL_CAT_CHANGE,
+        children=[
+            dmc.Text(f"Would you like to apply this change to all transactions of"
+                     f"this payee?"),
+            dmc.Space(h=20),
+            dmc.Group(
+                [
+                    dmc.Button("Yes", id=TransIDs.MODAL_CAT_CHANGE_YES,
+                               color="primary"),
+                    dmc.Button(
+                        "No",
+                        color="red",
+                        variant="outline",
+                        id=TransIDs.MODAL_CAT_CHANGE_NO
+                    ),
+                ],
+                position="right",
+            ),
+        ],
+    )
+
+
 def setup_table_cell_dropdowns():
     dropdown_options = {
         TransDBSchema.CAT: {
             'options': [{'label': f'{cat}', 'value': f'{cat}'} for cat in
-                        TRANS_DB[TransDBSchema.CAT].unique()]
+                        CAT_DB.get_categories()]
         },
         TransDBSchema.ACCOUNT: {
             'options': [{'label': f'{account}', 'value': f'{account}'} for
@@ -115,6 +149,9 @@ date_picker = dbc.Card([
         end_date_placeholder_text='Pick a date'
     )
 ])
+
+cat_change_modal = _create_category_change_modal()
+
 layout = dbc.Container([
     dbc.Row([
         dbc.Col([
@@ -128,12 +165,12 @@ layout = dbc.Container([
             html.Br(),
             dbc.Button('Add row',
                        id=TransIDs.ADD_ROW_BTN,
-                       n_clicks=0)
+                       n_clicks=0),
+            cat_change_modal
         ], width=3),
         dbc.Col(children=[trans_table,
                           html.Div(id=TransIDs.PLACEDHOLDER,
-                                   style={'display': 'none'})
-                          ],
+                                   style={'display': 'none'})],
                 width=9)
     ])
 ])
@@ -141,8 +178,74 @@ layout = dbc.Container([
 """
 Callbacks
 """
-START_DATE_DEFAULT = '1900-01-01'
-END_DATE_DEFAULT = '2100-01-01'
+
+
+def _detect_changes_in_table(df: pd.DataFrame,
+                             df_previous: pd.DataFrame,
+                             row_id_name: Optional[str] = None) \
+        -> Optional[dict]:
+    if row_id_name is not None:
+       # If using something other than the index for row id's, set it here
+       for _df in [df, df_previous]:
+           _df = _df.set_index(row_id_name)
+    else:
+       row_id_name = "index"
+
+    # todo make more efficient since we know there is only one change
+    # Pandas/Numpy says NaN != NaN, so we cannot simply compare the dataframes.  Instead we can either replace the
+    # NaNs with some unique value (which is fastest for very small arrays, but doesn't scale well) or we can do
+    # (from https://stackoverflow.com/a/19322739/5394584):
+    # Mask of elements that have changed, as a dataframe.  Each element indicates True if df!=df_prev
+    df_mask = ~((df == df_previous) | (
+                (df != df) & (df_previous != df_previous)))
+
+    # ...and keep only rows that include a changed value
+    df_mask = df_mask.loc[df_mask.any(axis=1)]
+    changes = []
+    for idx, row in df_mask.iterrows():
+        row_id = row.name
+
+        # Act only on columns that had a change
+        row = row[row.eq(True)]
+        for change in row.iteritems():
+            changes.append(
+                {
+                    row_id_name: row_id,
+                    "column_name": change[0],
+                    "current_value": df.at[row_id, change[0]],
+                    "previous_value": df_previous.at[row_id, change[0]],
+                }
+            )
+
+    return changes[0] if len(changes) == 1 else None
+
+
+@dash.callback(
+    Output(TransIDs.MODAL_CAT_CHANGE, 'opened'),
+    Input(TransIDs.TRANS_TBL, "data"),
+    Input(TransIDs.TRANS_TBL, "data_previous"),
+    Input(TransIDs.MODAL_CAT_CHANGE_YES, 'n_clicks'),
+    Input(TransIDs.MODAL_CAT_CHANGE_NO, 'n_clicks'),
+    State(TransIDs.MODAL_CAT_CHANGE, 'opened'),
+    config_prevent_initial_callbacks=True
+)
+def _open_modal(data, data_prev, yes_clicks, no_clicks, opened):
+    df, df_prev = pd.DataFrame(data=data), pd.DataFrame(data_prev)
+    change = _detect_changes_in_table(df, df_prev)
+    if change is None:
+        return False
+
+    # for button clicks in modal
+    if yes_clicks is not None or no_clicks is not None:
+        if TransIDs.MODAL_CAT_CHANGE_NO == ctx.triggered_id:
+            _apply_changes_to_trans_db_cat_col(change, all_trans=False)
+        elif TransIDs.MODAL_CAT_CHANGE_YES == ctx.triggered_id:
+            _apply_changes_to_trans_db_cat_col(change, all_trans=True)
+        return not opened
+
+    # for opening modal
+    if change['column_name'] == TransDBSchema.CAT:
+        return True
 
 
 @dash.callback(
@@ -241,29 +344,44 @@ def _add_or_remove_row(df: pd.DataFrame, df_previous: pd.DataFrame):
         TRANS_DB.remove_row_with_id(removed_id)
 
 
-def _apply_changes_to_trans_db(changes: List[dict]):
+def _apply_changes_to_trans_db_no_cat(change: dict):
     """
     given a dict of changes the user made in trans table. apply them to trans
     db
-    :param changes: dict with keys: index, column_name, previous_value,
+    :param change: dict with keys: index, column_name, previous_value,
                                     current_value
     :return:
     """
-    for change in changes:
-        ind, col_name = change['index'], change['column_name']
-        prev_val = change['previous_value']
-        if TRANS_DB[col_name].iloc[ind] != prev_val:
-            raise ValueError('mismatch between prev_value and db value when'
-                             'trying to apply changes')
-        if col_name == TransDBSchema.DATE and prev_val == '':
-            pass
-        TRANS_DB.update_data(col_name=col_name, index=ind,
-                             value=change['current_value'])
+    ind, col_name = change['index'], change['column_name']
+    prev_val = change['previous_value']
+    if TRANS_DB[col_name].iloc[ind] != prev_val:
+        raise ValueError('mismatch between prev_value and db value when'
+                         'trying to apply changes')
+    if col_name == TransDBSchema.DATE and prev_val == '':
+        pass
+    TRANS_DB.update_data(col_name=col_name, index=ind,
+                         value=change['current_value'])
 
-        if col_name == CatDBSchema.CAT_NAME:
-            # todo add popup asking if to change for all transactions - if so
-            #  update payee2cat, cat2payee
-            pass
+
+def _apply_changes_to_trans_db_cat_col(change: dict, all_trans: bool):
+    """
+    change the category of the transactions in trans db. If all_trans - change
+    all transactions of given payee
+    :param all_trans: if True change all transactions of given payee
+    :return:
+    """
+    if change['current_value'] == change['previous_value']:
+        return
+
+    if all_trans:
+        payee = TRANS_DB.loc[change['index'], TransDBSchema.PAYEE]
+        to_change = TRANS_DB[TRANS_DB[TransDBSchema.PAYEE] == payee]
+        to_change[TransDBSchema.CAT] = change['current_value']
+        uuids = to_change[TransDBSchema.ID].to_list()
+        TRANS_DB.save_db_from_uuids(uuids)
+    else:
+        TRANS_DB.update_data(TransDBSchema.CAT, change['index'],
+                             change['current_value'])
 
 
 @dash.callback(
@@ -291,41 +409,11 @@ def diff_dashtable(data, data_previous, row_id_name=None):
     """
     df, df_previous = pd.DataFrame(data=data), pd.DataFrame(data_previous)
 
-    if row_id_name is not None:
-        # If using something other than the index for row id's, set it here
-        for _df in [df, df_previous]:
-            _df = _df.set_index(row_id_name)
-    else:
-        row_id_name = "index"
-
     if len(df) != len(df_previous):
         return _add_or_remove_row(df, df_previous)
 
-    # Pandas/Numpy says NaN != NaN, so we cannot simply compare the dataframes.  Instead we can either replace the
-    # NaNs with some unique value (which is fastest for very small arrays, but doesn't scale well) or we can do
-    # (from https://stackoverflow.com/a/19322739/5394584):
-    # Mask of elements that have changed, as a dataframe.  Each element indicates True if df!=df_prev
-    df_mask = ~((df == df_previous) | ((df != df) & (df_previous != df_previous)))
+    change = _detect_changes_in_table(df, df_previous, row_id_name)
+    if change['column_name'] == TransDBSchema.CAT:
+        return  # there is another callback for updating cat changes
 
-    # ...and keep only rows that include a changed value
-    df_mask = df_mask.loc[df_mask.any(axis=1)]
-
-    changes = []
-    for idx, row in df_mask.iterrows():
-        row_id = row.name
-
-        # Act only on columns that had a change
-        row = row[row.eq(True)]
-        for change in row.iteritems():
-            changes.append(
-                {
-                    row_id_name: row_id,
-                    "column_name": change[0],
-                    "current_value": df.at[row_id, change[0]],
-                    "previous_value": df_previous.at[row_id, change[0]],
-                }
-            )
-    print(changes)
-    _apply_changes_to_trans_db(changes)
-
-
+    _apply_changes_to_trans_db_no_cat(change)

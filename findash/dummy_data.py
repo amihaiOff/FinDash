@@ -28,7 +28,7 @@ def get_dummy_values():
         'amount': amount,
         'memo': memo,
         'reconciled': reconciled,
-        'category': category
+        'cat_name': category
     }
 
 
@@ -102,13 +102,13 @@ def generate_catdb():
     categories = []
     groups = []
     budgets = []
-    for group, cats in dummy_vals['category'].items():
+    for group, cats in dummy_vals['cat_name'].items():
         for cat in cats:
             categories.append(cat)
             groups.append(group)
             budgets.append(np.random.choice(dummy_vals['budget'], 1)[0])
     return pd.DataFrame({
-        'category': categories,
+        'cat_name': categories,
         'cat_group': groups,
         'in_constant': False,
         'budget': budgets

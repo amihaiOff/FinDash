@@ -2,6 +2,8 @@ from abc import abstractmethod, ABC
 from enum import Enum
 from typing import Dict
 
+import pandas as pd
+
 from transactions_db import TransDBSchema
 
 CHECKING_ACCOUNTS = []
@@ -44,7 +46,11 @@ class Account(ABC):
         self._name = name
 
     @abstractmethod
-    def get_col_mapping(self) -> ColMapping:
+    def _get_col_mapping(self) -> ColMapping:
+        pass
+
+    @abstractmethod
+    def process_trans_file(self, trans_file: pd.DataFrame) -> pd.DataFrame:
         pass
 
     @property
@@ -58,6 +64,10 @@ class Account(ABC):
     @property
     @abstractmethod
     def inflow_sign(self) -> InflowSign:
+        pass
+
+    @abstractmethod
+    def get_datetime_format(self) -> str:
         pass
 
 
@@ -79,6 +89,9 @@ class FIBI(Account):
     def inflow_sign(self) -> InflowSign:
         return InflowSign.MINUS
 
+    def get_datetime_format(self) -> str:
+        pass
+
 
 class CAL(Account):
     is_checking = False
@@ -87,21 +100,44 @@ class CAL(Account):
     def __init__(self, name: str):
         super().__init__(name)
 
-    def get_col_mapping(self) -> ColMapping:
+    def _get_col_mapping(self) -> ColMapping:
         col_mapping = {
-            "Date": 'date',
-            "Amount": 'amount',
-            "Payee": 'payee',
-            "Memo": 'memo',
-            "Inflow": 'inflow',
-            "Outflow": 'outflow'
+            "תאריך העסקה": 'date',
+            "סכום החיוב": 'amount',
+            "שם בית העסק": 'payee',
+            "פירוט נוסף": 'memo',
         }
 
         return ColMapping(col_mapping)
 
+    def process_trans_file(self, trans_file: pd.DataFrame):
+        trans_file.columns = trans_file.iloc[1, :]
+        trans_file = trans_file.drop(trans_file.index[:2])
+        trans_file = trans_file.drop(trans_file.index[-1])
+        trans_file = self._apply_col_mapping(trans_file)
+        return trans_file
+
+    def _apply_col_mapping(self, trans_file: pd.DataFrame):
+        """
+        change column names according to mapping from account object
+        :param trans_file:
+        :return:
+        """
+        for source_col, dest_col in self._get_col_mapping().col_mapping.items():
+            if source_col in trans_file.columns:
+                trans_file = trans_file.rename(columns={source_col: dest_col})
+            # else:
+            #     logger.warning(
+            #         f'col {source_col} not found in transactions file')
+
+        return trans_file
+
     @property
     def inflow_sign(self) -> InflowSign:
-        pass  # todo
+        return InflowSign.MINUS
+
+    def get_datetime_format(self) -> str:
+        return "%d/%m/%y"
 
 
 class OZ(Account):

@@ -1,4 +1,4 @@
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Optional
 from datetime import datetime
 
 import dash
@@ -22,10 +22,16 @@ dash.register_page(__name__)
 CURR_TRANS_DB = TRANS_DB.get_current_month_trans()
 
 
-def _calculate_checking_total(last=False) -> float:
+def _calculate_outflow_total(last: bool = False) -> float:
+    db = TRANS_DB if not last else CURR_TRANS_DB
+    return db[TransDBSchema.OUTFLOW].sum()
+
+
+def _calculate_checking_total(last: bool = False) -> float:
     """
-    sum of all inflow
-    :param last: if True, sum only This month's inflow
+    sum of all inflow from checking accounts (reimbursements from credit don't
+    count)
+    :param last: if True, sum only this month's inflow
     """
     checking_accounts = [acc.institution.value for acc in CHECKING_ACCOUNTS]
     db = TRANS_DB if not last else CURR_TRANS_DB
@@ -33,9 +39,20 @@ def _calculate_checking_total(last=False) -> float:
             TransDBSchema.INFLOW].sum()
 
 
-def _curr_expenses_pct():
+def _curr_expenses_from_budget_pct() -> Optional[float]:
+    """ divide current month's expenses by current month's budget """
+    current_budget = CAT_DB.get_total_budget()
+    if current_budget == 0:
+        return None
+    else:
+        return _calculate_outflow_total(last=True) * 100 / current_budget
+
+
+def _curr_expenses_from_income_pct() -> Optional[float]:
     """ divide current month's expenses by current month's income """
     current_income = _calculate_checking_total(last=True)
+    if current_income == 0:
+        return None
     current_expenses = CURR_TRANS_DB[TransDBSchema.OUTFLOW].sum()
     return current_expenses * 100 / current_income
 
@@ -114,12 +131,17 @@ def _create_checking_card():
 
 def _create_income_card() -> Tuple[dbc.Card, dbc.Popover]:
     income = _calculate_checking_total(last=True)
-    curr_expenses_pct = _curr_expenses_pct()
-    color = conditional_coloring(curr_expenses_pct, {'green': (0, np.inf),
-                                                     'red': (-np.inf, 0)})
+    if income == 0:
+        subtitle = 'No income this month'
+        color = 'red'
+    else:
+        curr_expenses_pct = _curr_expenses_from_income_pct()
+        subtitle = f"{curr_expenses_pct:.0f}% income used"
+        color = conditional_coloring(curr_expenses_pct, {'green': (0, np.inf),
+                                                         'red': (-np.inf, 0)})
     card = _create_banner_card(title='Last Income',
                                value=income,
-                               subtitle=f"{curr_expenses_pct:.0f}% income used",
+                               subtitle=subtitle,
                                color=color,
                                id='income-card')
 
@@ -137,15 +159,21 @@ def _create_income_card() -> Tuple[dbc.Card, dbc.Popover]:
 
 
 def _create_expenses_card():
-    expenses = _calculate_checking_total(True)
-    curr_expenses_pct = _curr_expenses_pct()
-    color = conditional_coloring(curr_expenses_pct, {
-        'green': (0, np.inf),
-        'red': (-np.inf, 0)
-    })
+    expenses = _calculate_outflow_total(True)
+    curr_expenses_pct = _curr_expenses_from_budget_pct()
+    if curr_expenses_pct is None:
+        color = 'red'
+        subtitle = 'No budget this month'
+    else:
+        color = conditional_coloring(curr_expenses_pct, {
+            'green': (0, np.inf),
+            'red': (-np.inf, 0)
+        })
+        subtitle = f"{curr_expenses_pct:.0f}% budget used"
+
     return _create_banner_card(title="Expenses",
                                value=expenses,
-                               subtitle=f"{curr_expenses_pct:.0f}% income used",
+                               subtitle=subtitle,
                                color=color,
                                id='expenses-card'
                                )

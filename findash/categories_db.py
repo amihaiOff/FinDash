@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 import json
 
 import pandas as pd
@@ -47,8 +47,11 @@ class CatRecord(Record):
 class CategoriesDB:
     def __init__(self):
         self._db = pd.DataFrame()
-        self._payee2cat = None
-        self._cat2payee = None
+        self._payee2cat = {}
+        self._cat2payee = {}
+
+    def get_categories(self) -> List[str]:
+        return self._db[CatDBSchema.CAT_NAME].to_list()
 
     def _load_dbs(self):
         self._db = pd.read_parquet(SETTINGS['db']['cat_db_path'])
@@ -82,10 +85,6 @@ class CategoriesDB:
         else:
             raise ValueError(f'category {category_name} already exists')
 
-    def add_category_by_record(self, cat_record: CatRecord) -> None:
-        self._db = self._db.append(cat_record.to_dict(), ignore_index=True)
-        self._save_cat_db(SETTINGS['cat_db_path'])
-
     def delete_category(self, category_name: str) -> None:
         self._db = self._db[
             self._db[CatDBSchema.CAT_NAME] != category_name]
@@ -115,13 +114,13 @@ class CategoriesDB:
         return self._db[CatDBSchema.CAT_NAME].to_list()
 
     def get_cat_and_group_by_payee(self, payee: str) -> \
-            Optional[Tuple[str, str]]:
+            Union[Tuple[str, str], Tuple[None, None]]:
         cat = self._payee2cat.get(payee)
         if cat is not None:
             cat_group = self.get_category_group(cat)
             return cat, cat_group
         else:
-            return None
+            return None, None
 
     def get_category_group(self, cat: str) -> Optional[str]:
         cat_row = self._db[self._db[CatDBSchema.CAT_NAME == cat]]
