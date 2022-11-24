@@ -2,6 +2,7 @@ from typing import List, Optional
 
 import dash
 import dash_mantine_components as dmc
+import numpy as np
 import pandas as pd
 from dash import State, html, dash_table, dcc, Input, Output, ctx
 import dash_bootstrap_components as dbc
@@ -22,34 +23,27 @@ def setup_table_cols():
     trans_df_cols = []
     for col_type, cols in col_dtypes.items():
         for col in cols:
+            col = {'name': f'{col}',
+                   'id': f'{col}',
+                   'deletable': False,
+                   'renamable': False,
+                   'hideable': True}
+
             if col_type == 'date':
-                col = {'name': f'{col}',
-                       'id': f'{col}',
-                       'deletable': False,
-                       'renamable': False,
-                       'hideable': True,
-                       'type': 'datetime'}
+                col['type'] = 'datetime'
+
             elif col_type == 'str':
-                col = {'name': f'{col}',
-                       'id': f'{col}',
-                       'deletable': False,
-                       'renamable': False,
-                       'hideable': True,
-                       'type': 'text'}
+                col['type'] = 'text'
+
             elif col_type == 'numeric':
-                col = {'name': f'{col}',
-                       'id': f'{col}',
-                       'deletable': False,
-                       'renamable': False,
-                       'hideable': True,
-                       'type': 'numeric'}
+                col['type'] = 'numeric'
+
             elif col_type == 'cat':
-                col = {'name': f'{col}',
-                       'id': f'{col}',
-                       'deletable': False,
-                       'renamable': False,
-                       'hideable': True,
-                       'presentation': 'dropdown'}
+                col['presentation'] = 'dropdown'
+
+            elif col_type == 'readonly':
+                col['editable'] = False
+
             else:
                 raise ValueError(f'Unknown column type: {col_type}')
 
@@ -95,41 +89,74 @@ def setup_table_cell_dropdowns():
         TransDBSchema.ACCOUNT: {
             'options': [{'label': f'{account}', 'value': f'{account}'} for
                         account in TRANS_DB[TransDBSchema.ACCOUNT].unique()]
-        }
+        },
     }
     return dropdown_options
 
 
 dash.register_page(__name__)
-trans_table = dash_table.DataTable(data=TRANS_DB.to_dict('records'),
-                                   id=TransIDs.TRANS_TBL,
-                                   editable=True,
-                                   export_format='xlsx',
-                                   export_headers='display',
-                                   # fixed_rows={'headers': True},
-                                   page_action='native',
-                                   page_size=50,
-                                   row_deletable=True,
-                                   style_table={'height': '2000px'},
-                                   columns=setup_table_cols(),
-                                   dropdown=setup_table_cell_dropdowns(),
-                                   style_data_conditional=[
-                                       {'if': {'row_index': 'odd'},
-                                        'backgroundColor': 'rgb(220, 220, 220)'}
-                                   ]
-                                   )
+
+
+def _create_trans_table() -> dash_table.DataTable:
+    """
+    Creates the transaction table
+    :return:
+    """
+    trans_db_copy = TRANS_DB.copy()
+    trans_db_copy[TransDBSchema.DATE] = trans_db_copy[TransDBSchema.DATE].dt.strftime('%Y-%m-%d')
+    return dash_table.DataTable(data=trans_db_copy.to_dict('records'),
+                                id=TransIDs.TRANS_TBL,
+                                editable=True,
+                                export_format='xlsx',
+                                export_headers='display',
+                                # fixed_rows={'headers': True},
+                                page_action='native',
+                                page_size=50,
+                                row_deletable=True,
+                                style_table={'height': '2000px'},
+                                             # 'overflowX': 'auto'},
+                                columns=setup_table_cols(),
+                                dropdown=setup_table_cell_dropdowns(),
+                                style_data_conditional=[
+                                    {'if': {'row_index': 'odd'},
+                                        'backgroundColor': 'rgb(220, 220, 220)'},
+                                    {'if': {'column_id': TransDBSchema.ID},
+                                        'width': '500px'},
+                                    {'if': {'column_id': TransDBSchema.MEMO},
+                                        'width': '50px'},
+                                ],
+                                # style_cell={
+                                #     'overflow': 'hidden',
+                                #     'textOverflow': 'ellipsis',
+                                #     'maxWidth': 10
+                                # },
+                                tooltip_data=[
+                                       {
+                                           column: {'value': str(value), 'type': 'markdown'}
+                                           for column, value in row.items()
+                                       } for row in trans_db_copy.to_dict('records')
+                                   ],
+                                tooltip_duration=None,
+                                # style_data={
+                                #         'whiteSpace': 'normal',
+                                #         'height': 'auto',
+                                #     },
+                                )
+
+
+trans_table = _create_trans_table()
 
 category_picker = dbc.Card(
     children=[
         dbc.CardHeader('Category'),
         dcc.Dropdown(
             id=TransIDs.CAT_PICKER,
-            options=TRANS_DB[TransDBSchema.CAT].unique().tolist())
+            options=CAT_DB.get_categories())
     ])
 
-subcategory_picker = dbc.Card([
+group_picker = dbc.Card([
     dbc.CardHeader('Group'),
-    dcc.Dropdown(['X', 'Y', 'Z'])
+    dcc.Dropdown(CAT_DB.get_group_names())
 ])
 
 account_picker = dbc.Card([
@@ -157,7 +184,7 @@ layout = dbc.Container([
         dbc.Col([
             category_picker,
             html.Br(),
-            subcategory_picker,
+            group_picker,
             html.Br(),
             account_picker,
             html.Br(),
@@ -167,11 +194,11 @@ layout = dbc.Container([
                        id=TransIDs.ADD_ROW_BTN,
                        n_clicks=0),
             cat_change_modal
-        ], width=3),
+        ], width=2),
         dbc.Col(children=[trans_table,
                           html.Div(id=TransIDs.PLACEDHOLDER,
                                    style={'display': 'none'})],
-                width=9)
+                width=10)
     ])
 ])
 
@@ -230,8 +257,18 @@ def _detect_changes_in_table(df: pd.DataFrame,
     config_prevent_initial_callbacks=True
 )
 def _open_modal(data, data_prev, yes_clicks, no_clicks, opened):
+    # used a filter
+    if len(data) != len(data_prev):
+        return False
+
     df, df_prev = pd.DataFrame(data=data), pd.DataFrame(data_prev)
     change = _detect_changes_in_table(df, df_prev)
+
+    # first time setting a category
+    if change['previous_value'] == '':
+        _apply_changes_to_trans_db_cat_col(change, all_trans=False)
+        return False
+
     if change is None:
         return False
 
@@ -354,7 +391,9 @@ def _apply_changes_to_trans_db_no_cat(change: dict):
     """
     ind, col_name = change['index'], change['column_name']
     prev_val = change['previous_value']
-    if TRANS_DB[col_name].iloc[ind] != prev_val:
+    db_val = TRANS_DB[col_name].iloc[ind]
+    db_val = None if np.isnan(db_val) else db_val
+    if db_val != prev_val:
         raise ValueError('mismatch between prev_value and db value when'
                          'trying to apply changes')
     if col_name == TransDBSchema.DATE and prev_val == '':

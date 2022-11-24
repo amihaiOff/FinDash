@@ -4,7 +4,6 @@ import json
 
 import pandas as pd
 
-from db import Record
 from utils import SETTINGS
 
 """
@@ -28,20 +27,20 @@ class CatDBSchema:
     #     return iter([getattr(cls, f.name) for f in fields(cls)])
 
 
-class CatRecord(Record):
-    def __init__(self,
-                 cat_name: str,
-                 cat_group: Optional[str] = None,
-                 is_constant: Optional[str] = None,
-                 budget: Optional[str] = None):
-        self.cat_name = cat_name
-        self.cat_group = cat_group
-        self.is_constant = is_constant
-        self.budget = budget
-
-    @property
-    def schema_cols(self):
-        return [self.cat_name, self.cat_group, self.is_constant, self.budget]
+# class CatRecord(Record):
+#     def __init__(self,
+#                  cat_name: str,
+#                  cat_group: Optional[str] = None,
+#                  is_constant: Optional[str] = None,
+#                  budget: Optional[str] = None):
+#         self.cat_name = cat_name
+#         self.cat_group = cat_group
+#         self.is_constant = is_constant
+#         self.budget = budget
+#
+#     @property
+#     def schema_cols(self):
+#         return [self.cat_name, self.cat_group, self.is_constant, self.budget]
 
 
 class CategoriesDB:
@@ -76,7 +75,7 @@ class CategoriesDB:
         with open(SETTINGS['db']['cat2payee_db_path'], 'w') as f:
             json.dump(self._cat2payee, f)
 
-    def add_category_by_name(self, category_name: str) -> None:
+    def add_category(self, category_name: str) -> None:
         if category_name not in self.get_categories():
             self._db = self._db.append(
                 {CatDBSchema.CAT_NAME: category_name},
@@ -129,7 +128,7 @@ class CategoriesDB:
         return None
 
     def get_group_names(self):
-        return self._db[CatDBSchema.CAT_GROUP].unique().to_list()
+        return self._db[CatDBSchema.CAT_GROUP].unique().tolist()
 
     def get_groups(self) -> pd.core.groupby.generic.DataFrameGroupBy:
         return self._db.groupby(CatDBSchema.CAT_GROUP)

@@ -17,6 +17,7 @@ def input_trans_df():
                          'reconciled': [True, False, True],
                          'memo': ['j', 'k', 'l']})
 
+
 def trans_df_from_path():
     """
     create temporary file trans_df to it and return it

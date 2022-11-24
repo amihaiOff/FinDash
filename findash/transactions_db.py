@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Tuple
 import pandas as pd
 
 from categories_db import CategoriesDB
-from db import Record
 from utils import SETTINGS, create_uuid
 
 """
@@ -73,7 +72,8 @@ class TransDBSchema:
             'date': [cls.DATE],
             'str': [cls.PAYEE, cls.MEMO],
             'numeric': [cls.INFLOW, cls.OUTFLOW, cls.AMOUNT],
-            'cat': [cls.CAT, cls.ACCOUNT]
+            'cat': [cls.CAT, cls.ACCOUNT],
+            'readonly': [cls.CAT_GROUP]
         }
 
     @classmethod
@@ -89,35 +89,35 @@ class TransDBSchema:
         return [cls.DATE]
 
 
-class TransRecord(Record):
-    def __init__(self,
-                 id: str,
-                 date: datetime,
-                 payee: str,
-                 cat: str,
-                 memo: str,
-                 account,
-                 # todo figure out the circular imports when having Account type
-                 inflow: float,
-                 outflow: float,
-                 reconciled: bool,
-                 amount: float):
-        self.id = id
-        self.date = date
-        self.payee = payee
-        self.cat = cat
-        self.memo = memo
-        self.account = account
-        self.inflow = inflow
-        self.outflow = outflow
-        self.reconciled = reconciled
-        self.amount = amount
-
-    @property
-    def schema_cols(self):
-        return [self.id, self.date, self.payee, self.cat, self.memo,
-                self.account, self.inflow,
-                self.outflow, self.reconciled, self.amount]
+# class TransRecord(Record):
+#     def __init__(self,
+#                  id: str,
+#                  date: datetime,
+#                  payee: str,
+#                  cat: str,
+#                  memo: str,
+#                  account,
+#                  # todo figure out the circular imports when having Account type
+#                  inflow: float,
+#                  outflow: float,
+#                  reconciled: bool,
+#                  amount: float):
+#         self.id = id
+#         self.date = date
+#         self.payee = payee
+#         self.cat = cat
+#         self.memo = memo
+#         self.account = account
+#         self.inflow = inflow
+#         self.outflow = outflow
+#         self.reconciled = reconciled
+#         self.amount = amount
+#
+#     @property
+#     def schema_cols(self):
+#         return [self.id, self.date, self.payee, self.cat, self.memo,
+#                 self.account, self.inflow,
+#                 self.outflow, self.reconciled, self.amount]
 
 
 class TransactionsDBParquet:
@@ -235,7 +235,7 @@ class TransactionsDBParquet:
         :param uuid_list: list of uuids
         :return: dataframe of transactions
         """
-        return self._db[self._db['id'].isin(uuid_list)]
+        return self._db[self._db[TransDBSchema.ID].isin(uuid_list)]
 
     def get_data_by_col_val(self,
                             col_val_dict: Dict[str, Any]) -> pd.DataFrame:
@@ -270,8 +270,9 @@ class TransactionsDBParquet:
         df = self._add_uuids(df)
         df = self._apply_categories(df)
         self._db = pd.concat([self._db, df])
+        self._db = self._db.reset_index(drop=True)
         self._sort_by_date()
-        self.save_db_from_uuids(df['id'].to_list())
+        self.save_db_from_uuids(df[TransDBSchema.ID].to_list())
 
     def _sort_by_date(self):
         """
@@ -316,12 +317,17 @@ class TransactionsDBParquet:
         :return:
         """
         months = self._get_months_from_uuid([id])
-        self._db = self._db[self._db['id'] != id]
+        self._db = self._db[self._db[TransDBSchema.ID] != id]
         self.save_db(months)
 
     def update_data(self, col_name: str, index: int, value: Any) -> None:
+        if col_name == TransDBSchema.CAT:
+            if value not in self._db[TransDBSchema.CAT].cat.categories:
+                self._db[TransDBSchema.CAT] = self._db[TransDBSchema.CAT].cat.\
+                    add_categories(value)
+
         self._db.loc[index, col_name] = value
-        self.save_db_from_uuids([self._db.loc[index, 'id']])
+        self.save_db_from_uuids(self._db[TransDBSchema.ID].to_list())
 
     def _get_months_from_uuid(self, uuid_lst: List[str]) -> List[
         Tuple[str, str]]:
@@ -331,7 +337,8 @@ class TransactionsDBParquet:
         """
         months = set()
         for uuid in uuid_lst:
-            date = self._db[self._db['id'] == uuid][TransDBSchema.DATE]
+            date = self._db[self._db[TransDBSchema.ID] == uuid][
+                TransDBSchema.DATE]
             if date.isnull().any():
                 return []
 
