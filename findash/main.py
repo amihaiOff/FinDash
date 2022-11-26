@@ -9,6 +9,9 @@ from transactions_importer import import_file
 from utils import SETTINGS
 from dummy_data import TransGenerator, generate_catdb
 from accounts import init_accounts
+import dash_bootstrap_components as dbc
+from dash import Dash, html
+import dash
 
 
 def setup_trans_db(load_type: str, cat_db: CategoriesDB):
@@ -49,9 +52,42 @@ def general_setup():
     init_accounts()
 
 
+def setup_pages_container(app):
+    app.layout = dbc.Container([
+        dbc.NavbarSimple(brand='FinDash',
+                         color='#b3ccf5',
+                         links_left=True,
+                         sticky='sticky',
+                         style={'height': '5vh'},
+                         children=[
+                             dbc.NavItem(dbc.NavLink('Monthly', href='/monthly')),
+                             dbc.NavItem(dbc.NavLink('Breakdown', href='/breakdown')),
+                             dbc.NavItem(dbc.NavLink('Transactions', href='/transactions'))
+                         ]),
+        html.Br(),
+        dash.page_container
+    ])
+
+
 CAT_DB = setup_cat_db()
-load_type = 'import'
+
+if len(list(Path('../dbs/trans_db/2022').iterdir())) > 0:
+    load_type = 'parquet'
+else:
+    load_type = 'import'
 TRANS_DB = setup_trans_db(load_type, CAT_DB)
+
+
+def setup_app():
+    app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], use_pages=True)
+    setup_pages_container(app)
+    return app
+
+
+def run_frontend():
+    app = setup_app()
+    app.run_server(port=8001, debug=True)
+
 
 if __name__ == "__main__":
     general_setup()

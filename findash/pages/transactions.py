@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import dash
 import dash_mantine_components as dmc
@@ -12,6 +12,7 @@ from main import TRANS_DB, CAT_DB
 from transactions_db import TransDBSchema
 from categories_db import CatDBSchema
 from element_ids import TransIDs
+from utils import format_date_col_for_display
 
 # for filtering the trans table
 START_DATE_DEFAULT = '1900-01-01'
@@ -102,13 +103,15 @@ def _create_trans_table() -> dash_table.DataTable:
     Creates the transaction table
     :return:
     """
-    trans_db_copy = TRANS_DB.copy()
-    trans_db_copy[TransDBSchema.DATE] = trans_db_copy[TransDBSchema.DATE].dt.strftime('%Y-%m-%d')
-    return dash_table.DataTable(data=trans_db_copy.to_dict('records'),
+    trans_db_formatted = format_date_col_for_display(TRANS_DB,
+                                                     TransDBSchema.DATE)
+    return dash_table.DataTable(data=trans_db_formatted.to_dict('records'),
                                 id=TransIDs.TRANS_TBL,
                                 editable=True,
                                 export_format='xlsx',
                                 export_headers='display',
+                                sort_by=[{'column_id': TransDBSchema.DATE,
+                                          'direction': 'desc'}],
                                 # fixed_rows={'headers': True},
                                 page_action='native',
                                 page_size=50,
@@ -134,9 +137,9 @@ def _create_trans_table() -> dash_table.DataTable:
                                        {
                                            column: {'value': str(value), 'type': 'markdown'}
                                            for column, value in row.items()
-                                       } for row in trans_db_copy.to_dict('records')
+                                       } for row in trans_db_formatted.to_dict('records')
                                    ],
-                                tooltip_duration=None,
+                                tooltip_duration=20000,
                                 # style_data={
                                 #         'whiteSpace': 'normal',
                                 #         'height': 'auto',
@@ -211,6 +214,13 @@ def _detect_changes_in_table(df: pd.DataFrame,
                              df_previous: pd.DataFrame,
                              row_id_name: Optional[str] = None) \
         -> Optional[dict]:
+    """
+     Modified from: https://community.plotly.com/t/detecting-changed-cell-in-editable-datatable/26219/2
+    :param df:
+    :param df_previous:
+    :param row_id_name:
+    :return:
+    """
     if row_id_name is not None:
        # If using something other than the index for row id's, set it here
        for _df in [df, df_previous]:
@@ -247,46 +257,68 @@ def _detect_changes_in_table(df: pd.DataFrame,
     return changes[0] if len(changes) == 1 else None
 
 
-@dash.callback(
-    Output(TransIDs.MODAL_CAT_CHANGE, 'opened'),
-    Input(TransIDs.TRANS_TBL, "data"),
-    Input(TransIDs.TRANS_TBL, "data_previous"),
-    Input(TransIDs.MODAL_CAT_CHANGE_YES, 'n_clicks'),
-    Input(TransIDs.MODAL_CAT_CHANGE_NO, 'n_clicks'),
-    State(TransIDs.MODAL_CAT_CHANGE, 'opened'),
-    config_prevent_initial_callbacks=True
-)
-def _open_modal(data, data_prev, yes_clicks, no_clicks, opened):
-    # used a filter
-    if len(data) != len(data_prev):
-        return False
-
-    df, df_prev = pd.DataFrame(data=data), pd.DataFrame(data_prev)
-    change = _detect_changes_in_table(df, df_prev)
-
-    # first time setting a category
-    if change['previous_value'] == '':
-        _apply_changes_to_trans_db_cat_col(change, all_trans=False)
-        return False
-
+def _open_modal(change) -> bool:
+    """ logic for opening cat change modal """
     if change is None:
         return False
 
-    # for button clicks in modal
-    if yes_clicks is not None or no_clicks is not None:
-        if TransIDs.MODAL_CAT_CHANGE_NO == ctx.triggered_id:
-            _apply_changes_to_trans_db_cat_col(change, all_trans=False)
-        elif TransIDs.MODAL_CAT_CHANGE_YES == ctx.triggered_id:
-            _apply_changes_to_trans_db_cat_col(change, all_trans=True)
-        return not opened
+    # first time setting a category
+    if change['previous_value'] == '':
+        return False
 
-    # for opening modal
-    if change['column_name'] == TransDBSchema.CAT:
-        return True
+    # open modal
+    return True
+
+
+def _trans_table_callback_trigger(data: List[dict],
+                                  data_prev: List[dict]) -> bool:
+    """
+    logic for handling callbacks triggered by changes to trans table
+    :param data:
+    :param data_prev:
+    :return:
+    """
+    to_open_modal = False
+    data, data_prev = pd.DataFrame(data=data), pd.DataFrame(data_prev)
+    if len(data) != len(data_prev):
+        _add_or_remove_row(data, data_prev)  # updates TRANS_DB
+        return to_open_modal
+
+    change = _detect_changes_in_table(data, data_prev)
+    if change['column_name'] != TransDBSchema.CAT:
+        # there is another callback for dealing with changes in cat column
+        _apply_changes_to_trans_db_no_cat(change)  # updates TRANS_DB
+
+    else:
+        to_open_modal = _open_modal(change)
+        # if not to_open_modal:  # the change will happen after modal selection
+        _apply_changes_to_trans_db_cat_col(change, all_trans=False)
+
+    return to_open_modal
+
+
+def _cat_change_modal_callback_trigger(data: List[dict],
+                                       data_prev: List[dict]) -> None:
+    """
+    logic for handling callbacks triggered by changes to cat change modal
+    :param data:
+    :param data_prev:
+    :return:
+    """
+    data, data_prev = pd.DataFrame(data=data), pd.DataFrame(data_prev)
+    change = _detect_changes_in_table(data, data_prev)
+    if ctx.triggered_id == TransIDs.MODAL_CAT_CHANGE_NO:
+        all_trans = False
+    elif ctx.triggered_id == TransIDs.MODAL_CAT_CHANGE_YES:
+        all_trans = True
+    else:
+        raise ValueError("Invalid triggered id in cat change modal")
+    _apply_changes_to_trans_db_cat_col(change, all_trans)
 
 
 @dash.callback(
     Output(TransIDs.TRANS_TBL, 'data'),
+    Output(TransIDs.MODAL_CAT_CHANGE, 'opened'),
     Input(TransIDs.CAT_PICKER, 'value'),
     Input(TransIDs.ACC_PICKER, 'value'),
     Input(TransIDs.DATE_PICKER, 'start_date'),
@@ -294,6 +326,11 @@ def _open_modal(data, data_prev, yes_clicks, no_clicks, opened):
     Input(TransIDs.ADD_ROW_BTN, 'n_clicks'),
     State(TransIDs.TRANS_TBL, 'data'),
     State(TransIDs.TRANS_TBL, 'columns'),
+    Input(TransIDs.TRANS_TBL, "data"),
+    Input(TransIDs.TRANS_TBL, "data_previous"),
+    Input(TransIDs.MODAL_CAT_CHANGE_YES, 'n_clicks'),
+    Input(TransIDs.MODAL_CAT_CHANGE_NO, 'n_clicks'),
+    State(TransIDs.MODAL_CAT_CHANGE, 'opened'),
     config_prevent_initial_callbacks=True
 )
 def update_table_callback(cat: str,
@@ -302,7 +339,12 @@ def update_table_callback(cat: str,
                           end_date: str,
                           n_clicks: int,
                           rows: list,
-                          columns: list):
+                          columns: list,
+                          data: list,
+                          data_prev: list,
+                          yes_clicks: int,
+                          no_clicks: int,
+                          opened: bool) -> Tuple[list, bool]:
     """
     This is the main callback for updating the table since each id can only
     have one callback that uses it as output. This function calls helper
@@ -314,20 +356,36 @@ def update_table_callback(cat: str,
     :param n_clicks: property of add row button
     :param rows: rows list of table to append a new row to
     :param columns: columns list of table to provide values for new row
-    :return: depends on triggering element
+    :param data: current data in trans table
+    :param data_prev: previous data in trans table
+    :param yes_clicks: property of yes button in change cat modal
+    :param no_clicks: property of no button in change cat modal
+    :param opened: property of change cat modal - if it is opened
+    :return: changes to table data and if the change cat modal should be opened
     """
+    to_open_modal = False
     if dash.callback_context.triggered_id == TransIDs.ADD_ROW_BTN:
-        return add_row(n_clicks, rows, columns)
+        return add_row(n_clicks, rows, columns), to_open_modal
+
     elif dash.callback_context.triggered_id in [TransIDs.CAT_PICKER,
                                                 TransIDs.ACC_PICKER,
                                                 TransIDs.DATE_PICKER,
                                                 TransIDs.DATE_PICKER]:
-        return filter_table(cat, account, start_date, end_date)
+        return _filter_table(cat, account, start_date, end_date), to_open_modal
+
+    elif dash.callback_context.triggered_id == TransIDs.TRANS_TBL:
+        to_open_modal = _trans_table_callback_trigger(data, data_prev)
+
+    elif dash.callback_context.triggered_id in [TransIDs.MODAL_CAT_CHANGE_YES,
+                                                TransIDs.MODAL_CAT_CHANGE_NO]:
+        _cat_change_modal_callback_trigger(data, data_prev)
     else:
         raise ValueError('Unknown trigger')
 
+    return TRANS_DB.get_records(), to_open_modal
 
-def filter_table(cat: str, account: str, start_date: str, end_date: str):
+
+def _filter_table(cat: str, account: str, start_date: str, end_date: str):
     """
     Filters the table based on the chosen filters
     :return: dict of filtered df
@@ -392,12 +450,13 @@ def _apply_changes_to_trans_db_no_cat(change: dict):
     ind, col_name = change['index'], change['column_name']
     prev_val = change['previous_value']
     db_val = TRANS_DB[col_name].iloc[ind]
-    db_val = None if np.isnan(db_val) else db_val
+    if col_name == TransDBSchema.DATE:
+        db_val = str(db_val.date())
+    db_val = None if pd.isna(db_val) else db_val
     if db_val != prev_val:
         raise ValueError('mismatch between prev_value and db value when'
                          'trying to apply changes')
-    if col_name == TransDBSchema.DATE and prev_val == '':
-        pass
+
     TRANS_DB.update_data(col_name=col_name, index=ind,
                          value=change['current_value'])
 
@@ -412,47 +471,17 @@ def _apply_changes_to_trans_db_cat_col(change: dict, all_trans: bool):
     if change['current_value'] == change['previous_value']:
         return
 
+    if change['current_value'] is None:
+        # None is not a valid category
+        change['current_value'] = ''
+
     if all_trans:
         payee = TRANS_DB.loc[change['index'], TransDBSchema.PAYEE]
-        to_change = TRANS_DB[TRANS_DB[TransDBSchema.PAYEE] == payee]
-        to_change[TransDBSchema.CAT] = change['current_value']
-        uuids = to_change[TransDBSchema.ID].to_list()
+        TRANS_DB.loc[TRANS_DB[TransDBSchema.PAYEE] == payee, TransDBSchema.CAT]\
+            = change['current_value']
+        uuids = TRANS_DB.loc[TRANS_DB[TransDBSchema.PAYEE] == payee,
+                             TransDBSchema.ID].to_list()
         TRANS_DB.save_db_from_uuids(uuids)
     else:
         TRANS_DB.update_data(TransDBSchema.CAT, change['index'],
                              change['current_value'])
-
-
-@dash.callback(
-    Output(TransIDs.PLACEDHOLDER, 'children'),
-    Input(TransIDs.TRANS_TBL, "data"),
-    Input(TransIDs.TRANS_TBL, "data_previous"),
-    config_prevent_initial_callbacks=True
-)
-def diff_dashtable(data, data_previous, row_id_name=None):
-    """Generate a diff of Dash DataTable data.
-
-    Modified from: https://community.plotly.com/t/detecting-changed-cell-in-editable-datatable/26219/2
-
-    Parameters
-    ----------
-    data: DataTable property (https://dash.plot.ly/datatable/reference)
-        The contents of the table (list of dicts)
-    data_previous: DataTable property
-        The previous state of `data` (list of dicts).
-
-    Returns
-    -------
-    A list of dictionaries in form of [{row_id_name:, column_name:, current_value:,
-        previous_value:}]
-    """
-    df, df_previous = pd.DataFrame(data=data), pd.DataFrame(data_previous)
-
-    if len(df) != len(df_previous):
-        return _add_or_remove_row(df, df_previous)
-
-    change = _detect_changes_in_table(df, df_previous, row_id_name)
-    if change['column_name'] == TransDBSchema.CAT:
-        return  # there is another callback for updating cat changes
-
-    _apply_changes_to_trans_db_no_cat(change)

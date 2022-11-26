@@ -1,12 +1,12 @@
 from dataclasses import dataclass, fields
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Optional
 
 import pandas as pd
 
 from categories_db import CategoriesDB
-from utils import SETTINGS, create_uuid
+from utils import SETTINGS, create_uuid, format_date_col_for_display
 
 """
 The purpose of this module is to provide a database for transactions.
@@ -89,37 +89,6 @@ class TransDBSchema:
         return [cls.DATE]
 
 
-# class TransRecord(Record):
-#     def __init__(self,
-#                  id: str,
-#                  date: datetime,
-#                  payee: str,
-#                  cat: str,
-#                  memo: str,
-#                  account,
-#                  # todo figure out the circular imports when having Account type
-#                  inflow: float,
-#                  outflow: float,
-#                  reconciled: bool,
-#                  amount: float):
-#         self.id = id
-#         self.date = date
-#         self.payee = payee
-#         self.cat = cat
-#         self.memo = memo
-#         self.account = account
-#         self.inflow = inflow
-#         self.outflow = outflow
-#         self.reconciled = reconciled
-#         self.amount = amount
-#
-#     @property
-#     def schema_cols(self):
-#         return [self.id, self.date, self.payee, self.cat, self.memo,
-#                 self.account, self.inflow,
-#                 self.outflow, self.reconciled, self.amount]
-
-
 class TransactionsDBParquet:
     def __init__(self, cat_db: CategoriesDB, db: pd.DataFrame = pd.DataFrame()):
         self._db: pd.DataFrame = db
@@ -166,7 +135,11 @@ class TransactionsDBParquet:
 
         if len(pq_files) == 0:
             self._db = pd.DataFrame()
-        self._db = pd.concat(pq_files)
+
+        final_df = pd.concat(pq_files)
+        final_df = apply_dtypes(final_df, include_date=False)
+        self._db = final_df
+        self._sort_by_date()
 
     def disconnect(self):
         """
@@ -181,8 +154,8 @@ class TransactionsDBParquet:
         :param months_to_save: list of tuples of form (year, month)
         :return:
         """
-        if len(months_to_save) == 0:
-            self._save_no_date_db()
+        # if len(months_to_save) == 0:
+        #     self._save_no_date_db()
 
         trans_db_path = Path(SETTINGS['db']['trans_db_path'])
         for year, month in months_to_save:
@@ -204,13 +177,13 @@ class TransactionsDBParquet:
         months = self._get_months_from_uuid(uuid_list)
         self.save_db(months)
 
-    def _save_no_date_db(self,) -> None:
-        """
-        saves transactions with no date to a parquet file for transactions with
-         no date
-        """
-        self._db[self._db[TransDBSchema.DATE].isnull()].to_parquet(
-            Path(SETTINGS['db']['trans_db_path']) / 'no_date.pq')
+    # def _save_no_date_db(self,) -> None:
+    #     """
+    #     saves transactions with no date to a parquet file for transactions with
+    #      no date
+    #     """
+    #     self._db[self._db[TransDBSchema.DATE].isnull()].to_parquet(
+    #         Path(SETTINGS['db']['trans_db_path']) / 'no_date.pq')
 
     def get_data_by_group(self, group: str):
         """
@@ -261,6 +234,15 @@ class TransactionsDBParquet:
                               == current_month]
         return TransactionsDBParquet(self._cat_db, curr_trans)
 
+    def get_records(self) -> dict:
+        """
+        get records of db to feed into dash datatable
+        :return:
+        """
+        formatted_df = format_date_col_for_display(self._db,
+                                                   TransDBSchema.DATE)
+        return formatted_df.to_dict('records')
+
     def insert_data(self, df: pd.DataFrame) -> None:
         """
         insert transactions to the db
@@ -270,8 +252,8 @@ class TransactionsDBParquet:
         df = self._add_uuids(df)
         df = self._apply_categories(df)
         self._db = pd.concat([self._db, df])
-        self._db = self._db.reset_index(drop=True)
         self._sort_by_date()
+        self._db = self._db.reset_index(drop=True)
         self.save_db_from_uuids(df[TransDBSchema.ID].to_list())
 
     def _sort_by_date(self):
@@ -280,6 +262,7 @@ class TransactionsDBParquet:
         :return:
         """
         self._db = self._db.sort_values(by=TransDBSchema.DATE, ascending=False)
+        self._db = self._db.reset_index(drop=True)
 
     def _apply_categories(self, df: pd.DataFrame):
         """
@@ -321,13 +304,34 @@ class TransactionsDBParquet:
         self.save_db(months)
 
     def update_data(self, col_name: str, index: int, value: Any) -> None:
+        # self._fix_extra_trans_bug()
         if col_name == TransDBSchema.CAT:
             if value not in self._db[TransDBSchema.CAT].cat.categories:
                 self._db[TransDBSchema.CAT] = self._db[TransDBSchema.CAT].cat.\
                     add_categories(value)
 
+        prev_value = self._db.loc[index, col_name]
         self._db.loc[index, col_name] = value
-        self.save_db_from_uuids(self._db[TransDBSchema.ID].to_list())
+
+        # trans moved to another month - save original month to save removal
+        if isinstance(prev_value, pd.Timestamp):
+            if prev_value.month != pd.to_datetime(value).month:
+                self.save_db([(str(prev_value.year), str(prev_value.month))])
+
+        uuid_list = [self._db.loc[index, TransDBSchema.ID]]
+
+        if col_name == TransDBSchema.DATE:
+            self._sort_by_date()
+
+        self.save_db_from_uuids(uuid_list)
+
+    # def _fix_extra_trans_bug(self):
+    #     """
+    #     there is weird bug that adds an empty transaction to the db on startup
+    #     this function removes it
+    #     :return:
+    #     """
+    #     self._db = self._db[~self._db[TransDBSchema.DATE].isnull()]
 
     def _get_months_from_uuid(self, uuid_lst: List[str]) -> List[
         Tuple[str, str]]:
@@ -362,3 +366,32 @@ class TransactionsDBParquet:
     @property
     def db(self):
         return self._db
+
+
+def apply_dtypes(df: pd.DataFrame, include_date: bool = True,
+                 datetime_format: Optional[str] = None) -> pd.DataFrame:
+    """
+    apply the dtypes of the db schema to the dataframe
+    :param df: dataframe to apply dtypes to
+    :param include_date: whether to include date column
+    :param datetime_format: format of the date column according to input
+                            trans file
+    :return: dataframe with dtypes applied
+    """
+    if include_date:
+        df[TransDBSchema.DATE] = pd.to_datetime(df[TransDBSchema.DATE],
+                                                format=datetime_format)
+    df[TransDBSchema.RECONCILED] = df[TransDBSchema.RECONCILED].astype(
+        bool)
+    df[TransDBSchema.INFLOW] = df[TransDBSchema.INFLOW].astype(float)
+    df[TransDBSchema.OUTFLOW] = df[TransDBSchema.OUTFLOW].astype(float)
+    df[TransDBSchema.AMOUNT] = df[TransDBSchema.AMOUNT].astype(float)
+    df[TransDBSchema.CAT] = df[TransDBSchema.CAT].astype('category')
+    df[TransDBSchema.CAT_GROUP] = df[TransDBSchema.CAT_GROUP]. \
+        astype('category')
+    df[TransDBSchema.ACCOUNT] = df[TransDBSchema.ACCOUNT].astype(
+        'category')
+    df[TransDBSchema.RECONCILED] = df[TransDBSchema.RECONCILED].astype(
+        bool)
+
+    return df

@@ -206,9 +206,18 @@ def cat_content(title: str,
                 cat_budget: float,
                 size: str = 'lg',
                 text_weight=500):
+    """
+    create content for category progress line
+    :param title:
+    :param usage:
+    :param cat_budget:
+    :param size:
+    :param text_weight:
+    :return:
+    """
     usage_pct = int(usage*100/cat_budget)
     color = conditional_coloring(usage_pct, {
-        'green': (0, LOW_USAGE_THR),
+        'green': (-np.inf, LOW_USAGE_THR),
         'yellow': (LOW_USAGE_THR, HIGH_USAGE_THR),
         'red': (HIGH_USAGE_THR, np.inf)
     })

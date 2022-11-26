@@ -1,7 +1,10 @@
 import datetime
 import uuid
+
+import numpy as np
+import pandas as pd
 import yaml
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, Optional
 
 
 def create_uuid():
@@ -51,5 +54,15 @@ def month_num_to_str(month_num: int) -> str:
     return datetime.date(1900, month_num, 1).strftime('%B')
 
 
+def format_date_col_for_display(trans_df: pd.DataFrame, date_col: datetime) \
+        -> pd.DataFrame:
+    """ format the date column for display """
+    df_copy = trans_df.copy()
+    df_copy[date_col] = df_copy[date_col].dt.strftime('%Y-%m-%d')
+    return df_copy
+
+
 SETTINGS = get_settings()
 SHEKEL_SYM = '₪'
+
+
