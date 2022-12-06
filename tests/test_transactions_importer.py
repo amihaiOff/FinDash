@@ -54,6 +54,6 @@ def gt_trans_file():
 
 @patch('pandas.read_csv', return_value=get_csv_file_like())
 def test_importer(mock_csv):
-    df = import_file(trans_file_path='test.csv', account=get_account())
+    df = import_file(trans_file_path='test.csv', account_name=get_account())
     pd.testing.assert_frame_equal(df, gt_trans_file())
 

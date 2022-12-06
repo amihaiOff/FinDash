@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional, Tuple
 
 import dash
@@ -8,15 +9,19 @@ from dash import State, html, dash_table, dcc, Input, Output, ctx
 import dash_bootstrap_components as dbc
 from dash.exceptions import PreventUpdate
 
-from main import TRANS_DB, CAT_DB
-from transactions_db import TransDBSchema
+from main import CAT_DB , TRANS_DB
+from accounts import ACCOUNTS
+from transactions_db import TransDBSchema, TransactionsDBParquet
 from categories_db import CatDBSchema
 from element_ids import TransIDs
-from utils import format_date_col_for_display
+from utils import format_date_col_for_display, SETTINGS
 
 # for filtering the trans table
 START_DATE_DEFAULT = '1900-01-01'
 END_DATE_DEFAULT = '2100-01-01'
+
+# TRANS_DB = TransactionsDBParquet(CAT_DB)
+# TRANS_DB.connect(SETTINGS['db']['trans_db_path'])
 
 
 def setup_table_cols():
@@ -82,6 +87,7 @@ def _create_category_change_modal() -> dmc.Modal:
 
 
 def setup_table_cell_dropdowns():
+    account_names = [acc_name for acc_name, _ in ACCOUNTS.items()]
     dropdown_options = {
         TransDBSchema.CAT: {
             'options': [{'label': f'{cat}', 'value': f'{cat}'} for cat in
@@ -89,7 +95,7 @@ def setup_table_cell_dropdowns():
         },
         TransDBSchema.ACCOUNT: {
             'options': [{'label': f'{account}', 'value': f'{account}'} for
-                        account in TRANS_DB[TransDBSchema.ACCOUNT].unique()]
+                        account in account_names]
         },
     }
     return dropdown_options
@@ -137,9 +143,10 @@ def _create_trans_table() -> dash_table.DataTable:
                                        {
                                            column: {'value': str(value), 'type': 'markdown'}
                                            for column, value in row.items()
-                                       } for row in trans_db_formatted.to_dict('records')
+                                       } for row in trans_db_formatted['memo'].to_frame().to_dict('records')
+
                                    ],
-                                tooltip_duration=20000,
+                                tooltip_duration=200,
                                 # style_data={
                                 #         'whiteSpace': 'normal',
                                 #         'height': 'auto',
@@ -159,13 +166,16 @@ category_picker = dbc.Card(
 
 group_picker = dbc.Card([
     dbc.CardHeader('Group'),
-    dcc.Dropdown(CAT_DB.get_group_names())
+    dcc.Dropdown(CAT_DB.get_group_names(),
+                 placeholder='Select a group',
+                 id=TransIDs.GROUP_PICKER)
 ])
 
 account_picker = dbc.Card([
     dbc.CardHeader('Account'),
     dcc.Dropdown(
         options=TRANS_DB[TransDBSchema.ACCOUNT].unique().tolist(),
+        placeholder='Select an account',
         id=TransIDs.ACC_PICKER)
 ])
 
@@ -254,20 +264,11 @@ def _detect_changes_in_table(df: pd.DataFrame,
                 }
             )
 
-    return changes[0] if len(changes) == 1 else None
-
-
-def _open_modal(change) -> bool:
-    """ logic for opening cat change modal """
-    if change is None:
-        return False
-
-    # first time setting a category
-    if change['previous_value'] == '':
-        return False
-
-    # open modal
-    return True
+    # if there are no changes then changes is None.
+    # if there is one change we return it
+    # if there are multiple changes, should only happen when changing category
+    # col, we need to think what todo
+    return changes #[0] if len(changes) == 1 else None
 
 
 def _trans_table_callback_trigger(data: List[dict],
@@ -281,18 +282,21 @@ def _trans_table_callback_trigger(data: List[dict],
     to_open_modal = False
     data, data_prev = pd.DataFrame(data=data), pd.DataFrame(data_prev)
     if len(data) != len(data_prev):
-        _add_or_remove_row(data, data_prev)  # updates TRANS_DB
+        _remove_row(data, data_prev)
         return to_open_modal
 
-    change = _detect_changes_in_table(data, data_prev)
-    if change['column_name'] != TransDBSchema.CAT:
-        # there is another callback for dealing with changes in cat column
-        _apply_changes_to_trans_db_no_cat(change)  # updates TRANS_DB
+    changes = _detect_changes_in_table(data, data_prev)
+    if changes is None:
+        return to_open_modal
 
-    else:
-        to_open_modal = _open_modal(change)
-        # if not to_open_modal:  # the change will happen after modal selection
-        _apply_changes_to_trans_db_cat_col(change, all_trans=False)
+    for change in changes:
+        if change['column_name'] not in TransDBSchema.get_categorical_cols():
+            _apply_changes_to_trans_db_no_cat(change)
+        else:
+            to_open_modal = change['previous_value'] is not None
+            # if not to_open_modal:  # the change will happen after modal selection
+            _apply_changes_to_trans_db_cat_col(change, all_trans=False,
+                                               col=change['column_name'])
 
     return to_open_modal
 
@@ -306,20 +310,23 @@ def _cat_change_modal_callback_trigger(data: List[dict],
     :return:
     """
     data, data_prev = pd.DataFrame(data=data), pd.DataFrame(data_prev)
-    change = _detect_changes_in_table(data, data_prev)
-    if ctx.triggered_id == TransIDs.MODAL_CAT_CHANGE_NO:
-        all_trans = False
-    elif ctx.triggered_id == TransIDs.MODAL_CAT_CHANGE_YES:
-        all_trans = True
-    else:
-        raise ValueError("Invalid triggered id in cat change modal")
-    _apply_changes_to_trans_db_cat_col(change, all_trans)
+    changes = _detect_changes_in_table(data, data_prev)
+    for change in changes:
+        if ctx.triggered_id == TransIDs.MODAL_CAT_CHANGE_NO:
+            all_trans = False
+        elif ctx.triggered_id == TransIDs.MODAL_CAT_CHANGE_YES:
+            all_trans = True
+        else:
+            raise ValueError("Invalid triggered id in cat change modal")
+        _apply_changes_to_trans_db_cat_col(change, all_trans,
+                                           col=change['column_name'])
 
 
 @dash.callback(
     Output(TransIDs.TRANS_TBL, 'data'),
     Output(TransIDs.MODAL_CAT_CHANGE, 'opened'),
     Input(TransIDs.CAT_PICKER, 'value'),
+    Input(TransIDs.GROUP_PICKER, 'value'),
     Input(TransIDs.ACC_PICKER, 'value'),
     Input(TransIDs.DATE_PICKER, 'start_date'),
     Input(TransIDs.DATE_PICKER, 'end_date'),
@@ -334,6 +341,7 @@ def _cat_change_modal_callback_trigger(data: List[dict],
     config_prevent_initial_callbacks=True
 )
 def update_table_callback(cat: str,
+                          group: str,
                           account: str,
                           start_date: str,
                           end_date: str,
@@ -368,10 +376,12 @@ def update_table_callback(cat: str,
         return add_row(n_clicks, rows, columns), to_open_modal
 
     elif dash.callback_context.triggered_id in [TransIDs.CAT_PICKER,
+                                                TransIDs.GROUP_PICKER,
                                                 TransIDs.ACC_PICKER,
                                                 TransIDs.DATE_PICKER,
                                                 TransIDs.DATE_PICKER]:
-        return _filter_table(cat, account, start_date, end_date), to_open_modal
+        return _filter_table(cat, group, account, start_date, end_date), \
+               to_open_modal
 
     elif dash.callback_context.triggered_id == TransIDs.TRANS_TBL:
         to_open_modal = _trans_table_callback_trigger(data, data_prev)
@@ -385,7 +395,10 @@ def update_table_callback(cat: str,
     return TRANS_DB.get_records(), to_open_modal
 
 
-def _filter_table(cat: str, account: str, start_date: str, end_date: str):
+def _filter_table(cat: str,
+                  group: str,
+                  account: str,
+                  start_date: str, end_date: str):
     """
     Filters the table based on the chosen filters
     :return: dict of filtered df
@@ -407,11 +420,14 @@ def _filter_table(cat: str, account: str, start_date: str, end_date: str):
     account_cond = create_conditional_filter(TransDBSchema.ACCOUNT, account)
     date_cond = create_date_cond_filter(TransDBSchema.DATE, start_date,
                                         end_date)
+    group_cond = create_conditional_filter(TransDBSchema.CAT_GROUP, group)
+
     table = TRANS_DB[(cat_cond) &
+                     (group_cond) &
                      (account_cond) &
                      (date_cond)]
 
-    return table.to_dict("records")
+    return table.get_records()
 
 
 def add_row(n_clicks, rows, columns):
@@ -420,23 +436,24 @@ def add_row(n_clicks, rows, columns):
     :return: list of rows with new row appended
     """
     if n_clicks > 0:
-        rows.insert(0, {c['id']: '' for c in columns})
+        new_row = {col['id']: '' for col in columns}
+        date = datetime.now().strftime('%Y-%m-%d')
+        new_row['date'] = date
+        rows.insert(0, new_row)
+        TRANS_DB.add_new_row(date)
     return rows
 
 
-def _add_or_remove_row(df: pd.DataFrame, df_previous: pd.DataFrame):
+def _remove_row(df: pd.DataFrame, df_previous: pd.DataFrame):
     """
     The users added or removed a row from the trans table -> update the db
     :param df:
     :param df_previous:
     :return:
     """
-    if len(df) > len(df_previous):
-        # user added a row
-        TRANS_DB.add_blank_row()
-    else:
-        removed_id = (set(df_previous.id) - set(df.id)).pop()
-        TRANS_DB.remove_row_with_id(removed_id)
+    assert len(df) < len(df_previous)
+    removed_id = (set(df_previous.id) - set(df.id)).pop()
+    TRANS_DB.remove_row_with_id(removed_id)
 
 
 def _apply_changes_to_trans_db_no_cat(change: dict):
@@ -461,9 +478,10 @@ def _apply_changes_to_trans_db_no_cat(change: dict):
                          value=change['current_value'])
 
 
-def _apply_changes_to_trans_db_cat_col(change: dict, all_trans: bool):
+def _apply_changes_to_trans_db_cat_col(change: dict, all_trans: bool,
+                                       col: str):
     """
-    change the category of the transactions in trans db. If all_trans - change
+    change a categorical col in trans db. If all_trans - change
     all transactions of given payee
     :param all_trans: if True change all transactions of given payee
     :return:
@@ -477,11 +495,10 @@ def _apply_changes_to_trans_db_cat_col(change: dict, all_trans: bool):
 
     if all_trans:
         payee = TRANS_DB.loc[change['index'], TransDBSchema.PAYEE]
-        TRANS_DB.loc[TRANS_DB[TransDBSchema.PAYEE] == payee, TransDBSchema.CAT]\
+        TRANS_DB.loc[TRANS_DB[TransDBSchema.PAYEE] == payee, col]\
             = change['current_value']
         uuids = TRANS_DB.loc[TRANS_DB[TransDBSchema.PAYEE] == payee,
                              TransDBSchema.ID].to_list()
         TRANS_DB.save_db_from_uuids(uuids)
     else:
-        TRANS_DB.update_data(TransDBSchema.CAT, change['index'],
-                             change['current_value'])
+        TRANS_DB.update_cat_col_data(col, change['index'], change['current_value'])

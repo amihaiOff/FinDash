@@ -6,7 +6,8 @@ from typing import Any, Dict, List, Tuple, Optional
 import pandas as pd
 
 from categories_db import CategoriesDB
-from utils import SETTINGS, create_uuid, format_date_col_for_display
+from utils import SETTINGS, create_uuid, format_date_col_for_display, \
+    set_cat_col_categories
 
 """
 The purpose of this module is to provide a database for transactions.
@@ -20,8 +21,8 @@ class TransDBSchema:
     ID: str = 'id'
     DATE: datetime = 'date'
     PAYEE: str = 'payee'
-    CAT: pd.CategoricalDtype = 'cat'
-    CAT_GROUP: pd.CategoricalDtype = 'cat_group'
+    CAT: str = 'cat'
+    CAT_GROUP: str = 'cat_group'
     MEMO: str = 'memo'
     ACCOUNT: pd.CategoricalDtype = 'account'
     INFLOW: float = 'inflow'  # if forex trans will show the conversion to ils here
@@ -88,9 +89,20 @@ class TransDBSchema:
     def get_date_cols(cls):
         return [cls.DATE]
 
+    @classmethod
+    def get_categorical_cols(cls):
+        return [cls.CAT, cls.ACCOUNT, cls.CAT_GROUP]
+
+    @classmethod
+    def get_cols_for_dup_checking(cls):
+        """ these cols dictate which transactions are considered duplicates """
+        return [cls.PAYEE, cls.AMOUNT, cls.DATE]
+
 
 class TransactionsDBParquet:
-    def __init__(self, cat_db: CategoriesDB, db: pd.DataFrame = pd.DataFrame()):
+    def __init__(self,
+                 cat_db: CategoriesDB,
+                 db: pd.DataFrame = pd.DataFrame()):
         self._db: pd.DataFrame = db
         self._cat_db = cat_db
 
@@ -136,17 +148,25 @@ class TransactionsDBParquet:
         if len(pq_files) == 0:
             self._db = pd.DataFrame()
 
+        category_vals = self._get_category_vals(pq_files[0])
         final_df = pd.concat(pq_files)
         final_df = apply_dtypes(final_df, include_date=False)
+        final_df = set_cat_col_categories(final_df, category_vals)
         self._db = final_df
         self._sort_by_date()
 
-    def disconnect(self):
+    @staticmethod
+    def _get_category_vals(df) -> Dict[str, pd.CategoricalDtype]:
         """
-        In the case of a parquet db, disconnecting will only save the db
+        get all possible values for category columns
+        :param df:
+        :return:
         """
-        raise NotImplementedError(
-            'disconnecting from a parquet db is not implemented')
+        vals = {}
+        for col in TransDBSchema.get_categorical_cols():
+            vals[col] = df[col].cat.categories.tolist()
+
+        return vals
 
     def save_db(self, months_to_save: List[Tuple[str, str]]) -> None:
         """
@@ -177,13 +197,157 @@ class TransactionsDBParquet:
         months = self._get_months_from_uuid(uuid_list)
         self.save_db(months)
 
-    # def _save_no_date_db(self,) -> None:
-    #     """
-    #     saves transactions with no date to a parquet file for transactions with
-    #      no date
-    #     """
-    #     self._db[self._db[TransDBSchema.DATE].isnull()].to_parquet(
-    #         Path(SETTINGS['db']['trans_db_path']) / 'no_date.pq')
+    def insert_data(self, df: pd.DataFrame) -> None:
+        """
+        insert transactions to the db
+        :param df: dataframe of transactions
+        :return:
+        """
+        df = self._remove_duplicate_trans(df)
+        df = self._add_uuids(df)
+        df = self._apply_categories_and_groups(df)
+        self._db = pd.concat([self._db, df])
+        self._sort_by_date()
+        self._db = self._db.reset_index(drop=True)
+        self.save_db_from_uuids(df[TransDBSchema.ID].to_list())
+
+    def _remove_duplicate_trans(self, new_trans_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        remove duplicate transactions from the new transactions dataframe
+        """
+        original_len = len(self._db)
+        tmp_df = pd.concat([self._db, new_trans_df])
+        tmp_df = tmp_df.drop_duplicates(subset=TransDBSchema.get_cols_for_dup_checking(),
+                                        keep='first')
+
+        return tmp_df.iloc[original_len:, :]
+
+
+    @staticmethod
+    def _add_uuids(df: pd.DataFrame) -> pd.DataFrame:
+        """
+        add uuids to the transactions
+        :param df: dataframe of transactions
+        :return: dataframe of transactions with uuids
+        """
+        # TODO: maybe vectorize the uuid creation
+        df[TransDBSchema.ID] = df.apply(lambda x: create_uuid(), axis=1)
+
+        return df
+
+    def _sort_by_date(self):
+        """
+        sort the db by date
+        :return:
+        """
+        self._db = self._db.sort_values(by=TransDBSchema.DATE, ascending=False)
+        self._db = self._db.reset_index(drop=True)
+
+    def _apply_categories_and_groups(self, df: pd.DataFrame):
+        """
+        add categories to new inserted transactions
+        :param df: new transactions
+        :return:
+        """
+        for ind, row in df.iterrows():
+            payee = row[TransDBSchema.PAYEE]
+            cat, group = self._cat_db.get_cat_and_group_by_payee(payee)
+            if cat is not None:
+                self.update_cat_col_data()  # todo
+                df.iloc[ind, TransDBSchema.CAT] = cat
+                df.iloc[ind, TransDBSchema.CAT_GROUP] = group
+
+        return df
+
+    def add_new_row(self, date: str) -> None:
+        """
+        when adding a new transaction, add a blank row to the db which will
+        probably be edited and populated later
+        :return:
+        """
+        uuid = create_uuid()
+        new_row = pd.DataFrame([[None] * self._db.shape[1]],
+                               columns=self._db.columns)
+        new_row[TransDBSchema.ID] = uuid
+        new_row[TransDBSchema.DATE] = pd.to_datetime(date)
+        new_row[TransDBSchema.ACCOUNT] = ''
+
+        db = pd.concat([new_row, self._db])
+        self._db = apply_dtypes(db,
+                                include_date=True,
+                                datetime_format='%Y-%m-%d')
+        self._db = db.reset_index(drop=True)
+
+        self.save_db_from_uuids([uuid])
+
+    def remove_row_with_id(self, id: str):
+        """
+        remove row with id
+        :param id: id of row to remove
+        :return:
+        """
+        months = self._get_months_from_uuid([id])
+        self._db = self._db[self._db[TransDBSchema.ID] != id]
+        self.save_db(months)
+
+    def update_cat_col_data(self, col_name: str, index: int, value: Any):
+        """
+        when updating a category we also might need to change the category group
+        :param col_name:
+        :param index:
+        :param value:
+        :return:
+        """
+        self._update_cat_group(index, value)
+        self.update_data(col_name, index, value)
+
+    def update_data(self, col_name: str, index: int, value: Any) -> None:
+        """
+        update a specific cell in the db
+        :param col_name:
+        :param index:
+        :param value:
+        :return:
+        """
+        prev_value = self._db.loc[index, col_name]
+        self._db.loc[index, col_name] = value
+
+        # trans moved to another month - save original month to save removal
+        if isinstance(prev_value, pd.Timestamp):
+            if prev_value.month != pd.to_datetime(value).month:
+                self.save_db([(str(prev_value.year), str(prev_value.month))])
+
+        uuid_list = [self._db.loc[index, TransDBSchema.ID]]
+
+        if col_name == TransDBSchema.DATE:
+            self._sort_by_date()
+
+        self.save_db_from_uuids(uuid_list)
+
+    def _get_months_from_uuid(self, uuid_lst: List[str]) -> List[
+        Tuple[str, str]]:
+        """
+        get the months of the transactions with the given uuids
+        :return: a set of lists of form [year, month]
+        """
+        months = set()
+        for uuid in uuid_lst:
+            date = self._db[self._db[TransDBSchema.ID] == uuid][
+                TransDBSchema.DATE]
+            if date.isnull().any():
+                return []
+
+            date = date.iloc[0]
+            months.add((date.year, date.month))
+
+        return list(months)
+
+    def _update_cat_group(self, index: int, new_value: str):
+        """
+        update the category group of a transaction
+        """
+        group = self._cat_db.get_group_of_category(new_value)
+        self.update_data(TransDBSchema.CAT_GROUP, index, group)
 
     def get_data_by_group(self, group: str):
         """
@@ -192,7 +356,8 @@ class TransactionsDBParquet:
         :return: dataframe of data
         """
         return TransactionsDBParquet(self._cat_db,
-            self._db[self._db[TransDBSchema.CAT_GROUP] == group])
+                                     self._db[self._db[TransDBSchema.CAT_GROUP]
+                                              == group])
 
     def get_data_by_cat(self, cat: str) -> pd.DataFrame:
         """
@@ -243,132 +408,13 @@ class TransactionsDBParquet:
                                                    TransDBSchema.DATE)
         return formatted_df.to_dict('records')
 
-    def insert_data(self, df: pd.DataFrame) -> None:
-        """
-        insert transactions to the db
-        :param df: dataframe of transactions
-        :return:
-        """
-        df = self._add_uuids(df)
-        df = self._apply_categories(df)
-        self._db = pd.concat([self._db, df])
-        self._sort_by_date()
-        self._db = self._db.reset_index(drop=True)
-        self.save_db_from_uuids(df[TransDBSchema.ID].to_list())
-
-    def _sort_by_date(self):
-        """
-        sort the db by date
-        :return:
-        """
-        self._db = self._db.sort_values(by=TransDBSchema.DATE, ascending=False)
-        self._db = self._db.reset_index(drop=True)
-
-    def _apply_categories(self, df: pd.DataFrame):
-        """
-        add categories to new inserted transactions
-        :param df: new transactions
-        :return:
-        """
-        for ind, row in df.iterrows():
-            payee = row[TransDBSchema.PAYEE]
-            cat, group = self._cat_db.get_cat_and_group_by_payee(payee)
-            if cat is not None:
-                df.iloc[ind, TransDBSchema.CAT] = cat
-                df.iloc[ind, TransDBSchema.CAT_GROUP] = group
-
-        return df
-
-    def add_blank_row(self):
-        """
-        when adding a new transaction, add a blank row to the db which will
-        probably be edited and populated later
-        :return:
-        """
-        uuid = create_uuid()
-        num_cols_wo_id = self._db.shape[1] - 1
-        blank_row = pd.DataFrame([uuid] + [None] * num_cols_wo_id,
-                                 index=self._db.columns)
-        self._db = pd.concat([blank_row.T, self._db])
-
-        self.save_db_from_uuids([uuid])
-
-    def remove_row_with_id(self, id: str):
-        """
-        remove row with id
-        :param id: id of row to remove
-        :return:
-        """
-        months = self._get_months_from_uuid([id])
-        self._db = self._db[self._db[TransDBSchema.ID] != id]
-        self.save_db(months)
-
-    def update_data(self, col_name: str, index: int, value: Any) -> None:
-        # self._fix_extra_trans_bug()
-        if col_name == TransDBSchema.CAT:
-            if value not in self._db[TransDBSchema.CAT].cat.categories:
-                self._db[TransDBSchema.CAT] = self._db[TransDBSchema.CAT].cat.\
-                    add_categories(value)
-
-        prev_value = self._db.loc[index, col_name]
-        self._db.loc[index, col_name] = value
-
-        # trans moved to another month - save original month to save removal
-        if isinstance(prev_value, pd.Timestamp):
-            if prev_value.month != pd.to_datetime(value).month:
-                self.save_db([(str(prev_value.year), str(prev_value.month))])
-
-        uuid_list = [self._db.loc[index, TransDBSchema.ID]]
-
-        if col_name == TransDBSchema.DATE:
-            self._sort_by_date()
-
-        self.save_db_from_uuids(uuid_list)
-
-    # def _fix_extra_trans_bug(self):
-    #     """
-    #     there is weird bug that adds an empty transaction to the db on startup
-    #     this function removes it
-    #     :return:
-    #     """
-    #     self._db = self._db[~self._db[TransDBSchema.DATE].isnull()]
-
-    def _get_months_from_uuid(self, uuid_lst: List[str]) -> List[
-        Tuple[str, str]]:
-        """
-        get the months of the transactions with the given uuids
-        :return: a set of lists of form [year, month]
-        """
-        months = set()
-        for uuid in uuid_lst:
-            date = self._db[self._db[TransDBSchema.ID] == uuid][
-                TransDBSchema.DATE]
-            if date.isnull().any():
-                return []
-
-            date = date.iloc[0]
-            months.add((date.year, date.month))
-
-        return list(months)
-
-    @staticmethod
-    def _add_uuids(df: pd.DataFrame) -> pd.DataFrame:
-        """
-        add uuids to the transactions
-        :param df: dataframe of transactions
-        :return: dataframe of transactions with uuids
-        """
-        # TODO: maybe vectorize the uuid creation
-        df[TransDBSchema.ID] = df.apply(lambda x: create_uuid(), axis=1)
-
-        return df
-
     @property
     def db(self):
         return self._db
 
 
-def apply_dtypes(df: pd.DataFrame, include_date: bool = True,
+def apply_dtypes(df: pd.DataFrame,
+                 include_date: bool = True,
                  datetime_format: Optional[str] = None) -> pd.DataFrame:
     """
     apply the dtypes of the db schema to the dataframe

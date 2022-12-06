@@ -62,6 +62,19 @@ def format_date_col_for_display(trans_df: pd.DataFrame, date_col: datetime) \
     return df_copy
 
 
+def set_cat_col_categories(df: pd.DataFrame,
+                           cat_vals: Dict[str, Any]) -> pd.DataFrame:
+    """
+    given a dict of col_name: cat_vals, set the categorical values of col_name
+    to cat_val, in df
+    :return: df with set categoricals
+    """
+    for col_name, cat_vals in cat_vals.items():
+        df[col_name] = df[col_name].cat.set_categories(cat_vals)
+
+    return df
+
+
 SETTINGS = get_settings()
 SHEKEL_SYM = '₪'
 

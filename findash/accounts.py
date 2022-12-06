@@ -1,13 +1,14 @@
 from abc import abstractmethod, ABC
+import yaml
 from enum import Enum
 from typing import Dict
 
 import pandas as pd
 
 from transactions_db import TransDBSchema
+from utils import SETTINGS
 
-CHECKING_ACCOUNTS = []
-NON_CHECKING_ACCOUNTS = []
+ACCOUNTS = {}
 
 
 class Institution(Enum):
@@ -40,8 +41,6 @@ class ColMapping:
 
 
 class Account(ABC):
-    institution = None  # define in subclass
-
     def __init__(self, name: str):
         self._name = name
 
@@ -58,10 +57,6 @@ class Account(ABC):
         return self._name
 
     @property
-    def institution(self):
-        return self.institution
-
-    @property
     @abstractmethod
     def inflow_sign(self) -> InflowSign:
         pass
@@ -72,13 +67,15 @@ class Account(ABC):
 
 
 class FIBI(Account):
-    is_checking = True
-    institution = Institution.FIBI
+    def process_trans_file(self, trans_file: pd.DataFrame) -> pd.DataFrame:
+        pass
 
     def __init__(self, name: str):
+        self.is_checking = True
+        self.institution = Institution.FIBI
         super().__init__(name)
 
-    def get_col_mapping(self) -> ColMapping:
+    def _get_col_mapping(self) -> ColMapping:
         col_mapping = {
 
         }
@@ -94,10 +91,9 @@ class FIBI(Account):
 
 
 class CAL(Account):
-    is_checking = False
-    institution = Institution.CAL
-
     def __init__(self, name: str):
+        self.institution = Institution.CAL
+        self.is_checking = False
         super().__init__(name)
 
     def _get_col_mapping(self) -> ColMapping:
@@ -141,10 +137,9 @@ class CAL(Account):
 
 
 class OZ(Account):
-    is_checking = True
-    institution = Institution.OZ
-
     def __init__(self, name: str):
+        self.institution = Institution.OZ
+        self.is_checking = True
         super().__init__(name)
 
     def get_col_mapping(self) -> ColMapping:
@@ -160,13 +155,35 @@ class OZ(Account):
 
 
 def init_accounts():
-    import importlib, inspect
-    for name, cls in inspect.getmembers(importlib.import_module("accounts"),
-                                        inspect.isclass):
-        if cls.__module__ == 'accounts':
-            if issubclass(cls, Account) and cls is not Account:
-                if cls.is_checking:
-                    CHECKING_ACCOUNTS.append(cls)
-                else:
-                    NON_CHECKING_ACCOUNTS.append(cls)
+    """
+    create account classes of all available accounts as defined in
+    accounts.yaml - this is to make it possible to choose from all accounts
+    in trans table dropdown.
+    :return:
+    """
+    accounts_yaml = yaml.safe_load(open(SETTINGS['db']['accounts']))
+    for name, settings in accounts_yaml.items():
+        cls = accounts_register[settings['institution']]
+        acc = cls(name)
+        ACCOUNTS[name] = acc
 
+
+def init_account_by_name(acc_key: str) -> Account:
+    """
+    given the account key as defined in yaml file, return the account object
+    with the given name in the yaml file
+    :param acc_key:
+    :return:
+    """
+    accounts_yaml = yaml.safe_load(open(SETTINGS['db']['accounts']))
+    account = accounts_yaml[acc_key]
+    cls = accounts_register[account['institution']]
+    acc = cls(acc_key)
+    return acc
+
+
+accounts_register = {
+        'fibi': FIBI,
+        'cal': CAL,
+        'oz': OZ,
+    }

@@ -2,25 +2,67 @@ from typing import TextIO, Union
 
 import pandas as pd
 
-from accounts import Account, InflowSign
+from accounts import InflowSign, ACCOUNTS
 from transactions_db import TransDBSchema
 from transactions_db import apply_dtypes
-
+from categories_db import CategoriesDB
 
 # logger = getLogger()
 
 
-def import_file(trans_file_path: Union[str, TextIO], account: Account) \
-        -> pd.DataFrame:
+def import_file(trans_file_path: Union[str, TextIO], account_name: str,
+                cat_db: CategoriesDB) -> pd.DataFrame:
+    account = ACCOUNTS[account_name]
+
     trans_file = _load_file(trans_file_path)
     trans_file = account.process_trans_file(trans_file)
     trans_file = _fit_to_db_scheme(trans_file, account.name)
     trans_file = _remove_non_numeric_chars(trans_file)
     trans_file = apply_dtypes(trans_file,
                               datetime_format=account.get_datetime_format())
+    trans_file = _add_cats_to_categorical_columns(trans_file, cat_db)
     trans_file = _populate_inflow_outflow(trans_file, account.inflow_sign)
     trans_file = _fill_nan_values(trans_file)
+    trans_file = _apply_prev_categories(trans_file, cat_db)
     return trans_file
+
+
+def _apply_prev_categories(trans_file: pd.DataFrame, cat_db: CategoriesDB) \
+        -> pd.DataFrame:
+    """
+    apply categories to payees that were already categorized
+    :param trans_file:
+    """
+    for row_ind, row in trans_file.iterrows():
+        payee = row.payee
+        cat = cat_db.get_payee_category(payee)
+        if cat is not None:
+            cat_group = cat_db.get_group_of_category(cat)
+            trans_file.loc[row_ind, TransDBSchema.CAT] = cat
+            trans_file.loc[row_ind, TransDBSchema.CAT_GROUP] = cat_group
+
+    return trans_file
+
+
+def _add_cats_to_categorical_columns(trans_df: pd.DataFrame,
+                                    cat_db: CategoriesDB) -> pd.DataFrame:
+    """
+    add all possible categories to categorical columns
+    :return:
+    """
+    trans_df[TransDBSchema.CAT].cat.set_categories(cat_db.get_categories(),
+                                                   inplace=True)
+    trans_df[TransDBSchema.CAT].cat.add_categories('', inplace=True)
+
+    trans_df[TransDBSchema.CAT_GROUP].cat.set_categories(cat_db.get_group_names(),
+                                                         inplace=True)
+    trans_df[TransDBSchema.CAT_GROUP].cat.add_categories('', inplace=True)
+
+    trans_df[TransDBSchema.ACCOUNT].cat.set_categories(list(ACCOUNTS.keys()),
+                                                       inplace=True)
+    trans_df[TransDBSchema.ACCOUNT].cat.add_categories('', inplace=True)
+
+    return trans_df
 
 
 def _fit_to_db_scheme(trans_file: pd.DataFrame, account_name: str) \

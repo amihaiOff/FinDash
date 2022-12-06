@@ -1,5 +1,4 @@
-from typing import Dict, Tuple, List, Optional
-from datetime import datetime
+from typing import Dict, Tuple, Optional
 
 import dash
 import numpy as np
@@ -11,9 +10,10 @@ import dash_mantine_components as dmc
 import pandas as pd
 
 from main import CAT_DB, TRANS_DB
+from element_ids import MonthlyIDs
 from categories_db import CatDBSchema
 from transactions_db import TransDBSchema
-from accounts import CHECKING_ACCOUNTS, NON_CHECKING_ACCOUNTS
+from accounts import ACCOUNTS
 from utils import SHEKEL_SYM, conditional_coloring
 
 dash.register_page(__name__)
@@ -33,7 +33,7 @@ def _calculate_checking_total(last: bool = False) -> float:
     count)
     :param last: if True, sum only this month's inflow
     """
-    checking_accounts = [acc.institution.value for acc in CHECKING_ACCOUNTS]
+    checking_accounts = [acc.institution for acc in ACCOUNTS.values()]
     db = TRANS_DB if not last else CURR_TRANS_DB
     return db[db[TransDBSchema.ACCOUNT].isin(checking_accounts)][
             TransDBSchema.INFLOW].sum()
@@ -66,7 +66,8 @@ def _pct_budget_used():
 def _get_balance_per_account_for_popup():
     per_account = CURR_TRANS_DB.groupby(TransDBSchema.ACCOUNT)[
         TransDBSchema.INFLOW].sum()
-    checking_str = [acc.institution.value for acc in CHECKING_ACCOUNTS]
+    checking_str = [acc.institution for acc in ACCOUNTS.values() if
+                    acc.is_checking]
     checking_only = per_account[per_account.index.isin(checking_str)]
     string_rep = ''
     for account, acc_sum in checking_only.items():
@@ -77,7 +78,8 @@ def _get_balance_per_account_for_popup():
 def _get_income_per_account_popup():
     per_account = CURR_TRANS_DB.groupby(TransDBSchema.ACCOUNT)[
         TransDBSchema.OUTFLOW].sum()
-    non_checking_str = [acc.institution.value for acc in NON_CHECKING_ACCOUNTS]
+    non_checking_str = [acc.institution for acc in ACCOUNTS.values() if
+                        acc.is_checking]
     non_checking_only = per_account[per_account.index.isin(non_checking_str)]
     string_rep = ''
     for account, acc_sum in non_checking_only.items():
@@ -109,7 +111,7 @@ def _create_checking_card():
                     html.H2(f"{checking_total:.0f}{SHEKEL_SYM}"),
                     html.P(f"+12% MoM(?)", style={'color': 'green'})], # todo - think of what the subtitle needs to be
                     body=True,
-                    id='checking-card',
+                    id=MonthlyIDs.CHECKING_CARD,
                     color='light',
                     outline=True
     )
@@ -122,8 +124,8 @@ def _create_checking_card():
         ])],
         target='checking-card',
         trigger='hover',
-        placement='bottom'
-
+        placement='bottom',
+        id=MonthlyIDs.CHECKING_POPOVER
     )
 
     return checking_card, checking_popover
@@ -143,7 +145,7 @@ def _create_income_card() -> Tuple[dbc.Card, dbc.Popover]:
                                value=income,
                                subtitle=subtitle,
                                color=color,
-                               id='income-card')
+                               id=MonthlyIDs.INCOME_CARD)
 
     income_popover = dbc.Popover([
         dbc.PopoverHeader('Breakdown'),
@@ -153,7 +155,8 @@ def _create_income_card() -> Tuple[dbc.Card, dbc.Popover]:
         ])],
         target='income-card',
         trigger='hover',
-        placement='bottom'
+        placement='bottom',
+        id=MonthlyIDs.INCOME_POPOVER
     )
     return card, income_popover
 
@@ -175,7 +178,7 @@ def _create_expenses_card():
                                value=expenses,
                                subtitle=subtitle,
                                color=color,
-                               id='expenses-card'
+                               id=MonthlyIDs.EXPENSES_CARD
                                )
 
 
@@ -184,7 +187,7 @@ def _create_savings_card():
                                value=2000,
                                subtitle=f'Previous month 1000',
                                color='green',
-                               id='savings-card'
+                               id=MonthlyIDs.SAVINGS_CARD
                                )
 
 
@@ -197,6 +200,7 @@ def _create_notif_card():
 """
 Categories
 """
+# thresholds for coloring the category progress bar
 LOW_USAGE_THR = 85
 HIGH_USAGE_THR = 100
 
@@ -267,7 +271,7 @@ def create_cat_usage(group: pd.core.groupby.generic.DataFrameGroupBy):
 
 def create_accordion_items():
     accordion_items = []
-    for group_name, group in CAT_DB.get_groups():
+    for group_name, group in CAT_DB.get_groups_as_groupby():
         group_budget = group[CatDBSchema.BUDGET].sum()
         group_usage = CURR_TRANS_DB.get_data_by_group(group_name)[
             TransDBSchema.AMOUNT].sum()
@@ -279,16 +283,23 @@ def create_accordion_items():
     return accordion_items
 
 
-layout = dbc.Container([
-    dbc.Row([
-       dbc.Col(_create_checking_card(), width=2),
-       dbc.Col(_create_income_card(), width=2),
-       dbc.Col(_create_expenses_card(), width=2),
-       dbc.Col(_create_savings_card(), width=2),
-       dbc.Col(_create_notif_card(), width=4)]),
-    html.Br(),
-    dbc.Row([
-        dmc.AccordionMultiple(
-            children=create_accordion_items())
-    ])
-], fluid=True)
+def _create_layout():
+    global CURR_TRANS_DB
+    CURR_TRANS_DB = TRANS_DB.get_current_month_trans()
+
+    return dbc.Container([
+        dbc.Row([
+           dbc.Col(_create_checking_card(), width=2),
+           dbc.Col(_create_income_card(), width=2),
+           dbc.Col(_create_expenses_card(), width=2),
+           dbc.Col(_create_savings_card(), width=2),
+           dbc.Col(_create_notif_card(), width=4)]),
+        html.Br(),
+        dbc.Row([
+            dmc.AccordionMultiple(
+                children=create_accordion_items())
+        ])
+    ], fluid=True)
+
+
+layout = _create_layout
