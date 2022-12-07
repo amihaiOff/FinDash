@@ -24,4 +24,5 @@ class MonthlyIDs:
 
 
 class BreakdownIDs:
-    pass
+    EXPENSES_OVER_TIME_BY_GROUP_DD = 'expenses_over_time_by_group_dd'
+    EXPENSES_OVER_TIME_BY_GROUP_FIG = 'expenses_over_time_by_group_fig'

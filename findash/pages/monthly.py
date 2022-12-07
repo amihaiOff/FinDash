@@ -238,6 +238,10 @@ def cat_content(title: str,
         gutter="xs",
 )
 
+# def _create_progress_sections(value):
+#     today = datetime.datetime.today().day
+#     today_pct = today *100 / 30
+#
 
 def accordion_item(group_title: str,
                    group_usage: int,
