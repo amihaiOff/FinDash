@@ -25,15 +25,18 @@ dash.register_page(__name__)
 
 
 def setup_table_cols():
+    col_order = [TransDBSchema.DATE, TransDBSchema.PAYEE, TransDBSchema.INFLOW,
+                 TransDBSchema.OUTFLOW, TransDBSchema.CAT, TransDBSchema.MEMO,
+                 TransDBSchema.ACCOUNT]
     col_dtypes = TransDBSchema.get_displayed_cols_by_type()
-    trans_df_cols = []
+    trans_df_cols = [None] * len(col_order)
     for col_type, cols in col_dtypes.items():
         for col in cols:
-            col_def = {'name': col,
+            col_def = {'name': TransDBSchema.col_display_name_mapping()[col],
                        'id': col,
-                       'deletable': False,
                        'renamable': False,
-                       'hideable': True}
+                       'hideable': True,
+                       'deletable': False}
 
             if col_type == 'date':
                 col_def['type'] = 'datetime'
@@ -53,7 +56,8 @@ def setup_table_cols():
             else:
                 raise ValueError(f'Unknown column type: {col_type}')
 
-            trans_df_cols.append(col_def)
+            # trans_df_cols.append(col_def)
+            trans_df_cols[col_order.index(col)] = col_def
     return trans_df_cols
 
 # def _create_insert_file_modal() -> dbc.Modal:
@@ -153,26 +157,26 @@ def _create_trans_table() -> dash_table.DataTable:
                                 export_headers='display',
                                 sort_by=[{'column_id': TransDBSchema.DATE,
                                           'direction': 'desc'}],
-                                # fixed_rows={'headers': True},
-                                page_action='native',
                                 page_size=50,
                                 row_deletable=True,
-                                # style_table={'overflowX': 'auto'},
+                                fill_width=False,
+                                style_table={'overflowX': 'auto'},
                                 columns=setup_table_cols(),
                                 dropdown=setup_table_cell_dropdowns(),
-                                css=[{'selector': 'table',
-                                      'rule': 'table-layout: fixed'}],
+                                # css=[{'selector': 'table',
+                                #       'rule': 'table-layout: fixed'}],
                                 style_data_conditional=[
                                     {'if': {'row_index': 'odd'},
                                         'backgroundColor': 'rgb(240, 240, 240)'},
                                     {'if': {'column_id': TransDBSchema.MEMO},
-                                        'width': '2px'}
+                                        'textOverflow': 'ellipsis',
+                                        'maxWidth': 200,
+                                        'overflow': 'hidden'},
+                                    # {'if': {'column_id': TransDBSchema.CAT},
+                                    #     'textOverflow': 'ellipsis',
+                                    #     'maxWidth': 200,
+                                    #     'overflow': 'hidden'},
                                 ],
-                                # style_cell={
-                                #     'overflow': 'hidden',
-                                #     'textOverflow': 'ellipsis',
-                                #     'maxWidth': 50
-                                # },
                                 tooltip_data=[
                                        {
                                            column: {'value': str(value), 'type': 'markdown'}
@@ -182,8 +186,7 @@ def _create_trans_table() -> dash_table.DataTable:
                                    ],
                                 tooltip_duration=20000,
                                 style_data={
-                                        'whiteSpace': 'normal',
-                                        'height': 'auto',
+                                    'LeftBorder': '1px black solid',
                                     },
                                 )
 

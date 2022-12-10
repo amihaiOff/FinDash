@@ -31,6 +31,18 @@ class TransDBSchema:
     AMOUNT: float = 'amount'  # can be in forex
 
     @classmethod
+    def col_display_name_mapping(cls):
+        return {
+            cls.DATE: 'Date',
+            cls.PAYEE: 'Payee',
+            cls.CAT: 'Category',
+            cls.CAT_GROUP: 'Group',
+            cls.MEMO: 'Memo',
+            cls.ACCOUNT: 'Account',
+            cls.INFLOW: 'Inflow',
+            cls.OUTFLOW: 'Outflow',
+        }
+    @classmethod
     def get_mandatory_cols(cls) -> tuple:
         """
         mandatory cols every raw transactions file must have
@@ -72,9 +84,9 @@ class TransDBSchema:
         return {
             'date': [cls.DATE],
             'str': [cls.PAYEE, cls.MEMO],
-            'numeric': [cls.INFLOW, cls.OUTFLOW, cls.AMOUNT],
+            'numeric': [cls.INFLOW, cls.OUTFLOW],
             'cat': [cls.CAT, cls.ACCOUNT],
-            'readonly': [cls.CAT_GROUP]
+            # 'readonly': [cls.CAT_GROUP]
         }
 
     @classmethod
