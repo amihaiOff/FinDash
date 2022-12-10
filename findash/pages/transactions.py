@@ -8,13 +8,14 @@ import dash_mantine_components as dmc
 import pandas as pd
 from dash import State, html, dash_table, dcc, Input, Output, ctx
 import dash_bootstrap_components as dbc
+from dash.dash_table.Format import Format, Symbol
 
 from main import CAT_DB, TRANS_DB
 from accounts import ACCOUNTS
 from transactions_db import TransDBSchema, TransactionsDBParquet
 from categories_db import CatDBSchema
 from element_ids import TransIDs
-from utils import format_date_col_for_display, SETTINGS
+from utils import format_date_col_for_display, SETTINGS, SHEKEL_SYM
 from transactions_importer import import_file
 
 # for filtering the trans table
@@ -46,6 +47,7 @@ def setup_table_cols():
 
             elif col_type == 'numeric':
                 col_def['type'] = 'numeric'
+                col_def['format'] = Format().symbol(Symbol.yes).symbol_suffix(SHEKEL_SYM)
 
             elif col_type == 'cat':
                 col_def['presentation'] = 'dropdown'
@@ -167,15 +169,13 @@ def _create_trans_table() -> dash_table.DataTable:
                                 #       'rule': 'table-layout: fixed'}],
                                 style_data_conditional=[
                                     {'if': {'row_index': 'odd'},
-                                        'backgroundColor': 'rgb(240, 240, 240)'},
+                                        'backgroundColor': 'rgb(240, 246, 255)'},
                                     {'if': {'column_id': TransDBSchema.MEMO},
                                         'textOverflow': 'ellipsis',
                                         'maxWidth': 200,
                                         'overflow': 'hidden'},
-                                    # {'if': {'column_id': TransDBSchema.CAT},
-                                    #     'textOverflow': 'ellipsis',
-                                    #     'maxWidth': 200,
-                                    #     'overflow': 'hidden'},
+                                    {'if': {'column_id': TransDBSchema.DATE},
+                                        'color': 'gray'},
                                 ],
                                 tooltip_data=[
                                        {
@@ -186,12 +186,14 @@ def _create_trans_table() -> dash_table.DataTable:
                                    ],
                                 tooltip_duration=20000,
                                 style_data={
-                                    'LeftBorder': '1px black solid',
+                                    'border': 'none',
                                     },
                                 style_cell={
-                                    'textAlign': 'left',
+                                    'textAlign': 'center',
                                     'font-family': 'sans-serif',
                                     'font-size': '12px',
+                                    'padding-right': '5px',
+                                    'padding-left': '5px'
                                 }
                                 )
 
