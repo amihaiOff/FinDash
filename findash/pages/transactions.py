@@ -188,6 +188,11 @@ def _create_trans_table() -> dash_table.DataTable:
                                 style_data={
                                     'LeftBorder': '1px black solid',
                                     },
+                                style_cell={
+                                    'textAlign': 'left',
+                                    'font-family': 'sans-serif',
+                                    'font-size': '12px',
+                                }
                                 )
 
 
