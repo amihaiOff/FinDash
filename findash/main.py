@@ -41,8 +41,7 @@ def setup_trans_db(load_type: str, cat_db: CategoriesDB):
 
 def setup_cat_db():
     cat_db = CategoriesDB()
-    # cat_db.load_db(SETTINGS['db']['cat_db_path'])
-    cat_db._db = generate_catdb()
+    # cat_db._db = generate_catdb()
     return cat_db
 
 

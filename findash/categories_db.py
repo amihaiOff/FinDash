@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from pathlib import Path
 from typing import List, Optional, Tuple, Union
 import json
 
@@ -21,6 +22,8 @@ class CategoriesDB:
         self._payee2cat = {}
         self._cat2payee = {}
 
+        self._load_dbs()
+
     def _load_dbs(self):
         """
         load the categoeies db and the payee2cat and cat2payee dbs
@@ -28,13 +31,13 @@ class CategoriesDB:
         """
         self._db = pd.read_parquet(SETTINGS['db']['cat_db_path'])
 
-        if SETTINGS['db']['payee2cat_db_path'].exists():
+        if Path(SETTINGS['db']['payee2cat_db_path']).exists():
             with open(SETTINGS['db']['payee2cat_db_path'], 'r') as f:
                 self._payee2cat = json.load(f)
         else:
             self._payee2cat = {}
 
-        if SETTINGS['db']['cat2payee_db_path'].exists():
+        if Path(SETTINGS['db']['cat2payee_db_path']).exists():
             with open(SETTINGS['db']['cat2payee_db_path'], 'r') as f:
                 self._cat2payee = json.load(f)
         else:
@@ -42,11 +45,11 @@ class CategoriesDB:
 
     def _save_payee2cat(self):
         with open(SETTINGS['db']['payee2cat_db_path'], 'w') as f:
-            json.dump(self._payee2cat, f)
+            json.dump(self._payee2cat, f, indent=4, ensure_ascii=False)
 
     def _save_cat2payee(self):
         with open(SETTINGS['db']['cat2payee_db_path'], 'w') as f:
-            json.dump(self._cat2payee, f)
+            json.dump(self._cat2payee, f, indent=4, ensure_ascii=False)
 
     def _save_cat_db(self, db_path):
         self._db.to_parquet(db_path)
@@ -72,6 +75,20 @@ class CategoriesDB:
     def delete_category_budget(self, category_name: str) -> None:
         self._db[self._db[CatDBSchema.CAT_NAME] == category_name][
             CatDBSchema.BUDGET] = None
+
+    def update_payee_to_cat_mapping(self, payee: str, cat: str):
+        original_cat = self._payee2cat.get(payee)
+        if original_cat is not None and original_cat != cat:
+            self._cat2payee[original_cat].remove(payee)
+
+        if cat not in self._cat2payee:
+            self._cat2payee[cat] = []
+        if payee not in self._cat2payee[cat]:
+            self._cat2payee[cat].append(payee)
+            self._save_cat2payee()
+
+        self._payee2cat[payee] = cat
+        self._save_payee2cat()
 
     def get_cat_and_group_by_payee(self, payee: str) -> \
             Union[Tuple[str, str], Tuple[None, None]]:
@@ -110,4 +127,7 @@ class CategoriesDB:
 
     def get_categories(self) -> List[str]:
         return self._db[CatDBSchema.CAT_NAME].to_list()
+
+    def get_group_budget(self, group_name: str) -> pd.DataFrame:
+        return self._db[self._db[CatDBSchema.CAT_GROUP] == group_name]
 

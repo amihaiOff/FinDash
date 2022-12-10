@@ -1,4 +1,6 @@
-from typing import TextIO, Union
+from io import BytesIO, StringIO
+from pathlib import Path
+from typing import Union
 
 import pandas as pd
 
@@ -7,14 +9,12 @@ from transactions_db import TransDBSchema
 from transactions_db import apply_dtypes
 from categories_db import CategoriesDB
 
-# logger = getLogger()
 
-
-def import_file(trans_file_path: Union[str, TextIO], account_name: str,
+def import_file(trans_file: Union[str, StringIO, BytesIO], account_name: str,
                 cat_db: CategoriesDB) -> pd.DataFrame:
     account = ACCOUNTS[account_name]
 
-    trans_file = _load_file(trans_file_path)
+    trans_file = _load_file(trans_file)
     trans_file = account.process_trans_file(trans_file)
     trans_file = _fit_to_db_scheme(trans_file, account.name)
     trans_file = _remove_non_numeric_chars(trans_file)
@@ -97,7 +97,23 @@ def _populate_inflow_outflow(trans_file: pd.DataFrame,
     return trans_file
 
 
-def _load_file(trans_file_path: str) -> pd.DataFrame:
+def _load_file(file: Union[str, StringIO, BytesIO]) -> pd.DataFrame:
+    """
+    load file into dataframe
+    :param file: file to load
+    :return: dataframe of file
+    """
+    if isinstance(file, str) or isinstance(file, Path):
+        return _load_file_str(file)
+    elif isinstance(file, StringIO):
+        return pd.read_csv(file)
+    elif isinstance(file, BytesIO):
+        return pd.read_excel(file)
+    else:
+        raise ValueError('file must be str, StringIO or BytesIO')
+
+
+def _load_file_str(trans_file_path: str) -> pd.DataFrame:
     if trans_file_path.name.endswith('csv'):
         file = pd.read_csv(trans_file_path)
         if 'Unnamed: 0' in file.columns:

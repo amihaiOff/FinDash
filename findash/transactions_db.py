@@ -1,7 +1,7 @@
 from dataclasses import dataclass, fields
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Optional
+from typing import Any, Dict, List, Tuple, Optional, Union
 
 import pandas as pd
 
@@ -197,19 +197,26 @@ class TransactionsDBParquet:
         months = self._get_months_from_uuid(uuid_list)
         self.save_db(months)
 
-    def insert_data(self, df: pd.DataFrame) -> None:
+    def insert_data(self, df: pd.DataFrame) -> Dict[str, int]:
         """
         insert transactions to the db
         :param df: dataframe of transactions
         :return:
         """
+        # todo - return how many added and how many skipped (duplicate) to
+        #  display to user
+        orig_len = len(df)
         df = self._remove_duplicate_trans(df)
+        if len(df) == 0:
+            return {'added': 0, 'skipped': orig_len - len(df)}
         df = self._add_uuids(df)
         df = self._apply_categories_and_groups(df)
         self._db = pd.concat([self._db, df])
         self._sort_by_date()
         self._db = self._db.reset_index(drop=True)
         self.save_db_from_uuids(df[TransDBSchema.ID].to_list())
+
+        return {'added': len(df), 'skipped': orig_len - len(df)}
 
     def _remove_duplicate_trans(self, new_trans_df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -253,9 +260,8 @@ class TransactionsDBParquet:
             payee = row[TransDBSchema.PAYEE]
             cat, group = self._cat_db.get_cat_and_group_by_payee(payee)
             if cat is not None:
-                self.update_cat_col_data()  # todo
-                df.iloc[ind, TransDBSchema.CAT] = cat
-                df.iloc[ind, TransDBSchema.CAT_GROUP] = group
+                df.loc[ind, TransDBSchema.CAT] = cat
+                df.loc[ind, TransDBSchema.CAT_GROUP] = group
 
         return df
 
@@ -298,6 +304,11 @@ class TransactionsDBParquet:
         :param value:
         :return:
         """
+        # update mapping of payee to category
+        payee = self._db.loc[index, TransDBSchema.PAYEE]
+        if self._db.loc[index, col_name] is None:  # only update first time
+            self._cat_db.update_payee_to_cat_mapping(payee, cat=value)
+
         self._update_cat_group(index, value)
         self.update_data(col_name, index, value)
 

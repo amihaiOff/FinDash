@@ -219,7 +219,7 @@ def cat_content(title: str,
     :param text_weight:
     :return:
     """
-    usage_pct = int(usage*100/cat_budget)
+    usage_pct = int(usage*100/cat_budget) if cat_budget != 0 else 0
     color = conditional_coloring(usage_pct, {
         'green': (-np.inf, LOW_USAGE_THR),
         'yellow': (LOW_USAGE_THR, HIGH_USAGE_THR),
@@ -265,7 +265,9 @@ def accordion_item(group_title: str,
 
 def create_cat_usage(group: pd.core.groupby.generic.DataFrameGroupBy):
     cat_dict = {}
-    for ind, (cat_name, _, _, budget) in group.iterrows():
+    for ind, row in group.iterrows():
+        cat_name = row[CatDBSchema.CAT_NAME]
+        budget = row[CatDBSchema.BUDGET]
         usage = CURR_TRANS_DB[
                         CURR_TRANS_DB[TransDBSchema.CAT] == cat_name][
                                                     TransDBSchema.AMOUNT].sum()

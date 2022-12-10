@@ -15,7 +15,7 @@ def get_dummy_values():
     category = {'food': ['wolt', 'groceries', 'junk'],
                   'transportations': ['fuel', 'insurance'],
                   'bills': ['water', 'gas', 'arnona']}
-    budget = [100, 300, 500, 1000]
+    budget = [100, 3000, 500, 800]
     amount = [10, 30, 50, 100, 130, 150, 200]
     payee = [f'dude-{x}' for x in range(1, 7)]
     memo = ['']

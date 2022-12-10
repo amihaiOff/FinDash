@@ -1,27 +1,27 @@
 from datetime import datetime
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Any
+import base64
+import io
 
 import dash
 import dash_mantine_components as dmc
-import numpy as np
 import pandas as pd
 from dash import State, html, dash_table, dcc, Input, Output, ctx
 import dash_bootstrap_components as dbc
-from dash.exceptions import PreventUpdate
 
-from main import CAT_DB , TRANS_DB
+from main import CAT_DB, TRANS_DB
 from accounts import ACCOUNTS
 from transactions_db import TransDBSchema, TransactionsDBParquet
 from categories_db import CatDBSchema
 from element_ids import TransIDs
 from utils import format_date_col_for_display, SETTINGS
+from transactions_importer import import_file
 
 # for filtering the trans table
 START_DATE_DEFAULT = '1900-01-01'
 END_DATE_DEFAULT = '2100-01-01'
 
-# TRANS_DB = TransactionsDBParquet(CAT_DB)
-# TRANS_DB.connect(SETTINGS['db']['trans_db_path'])
+dash.register_page(__name__)
 
 
 def setup_table_cols():
@@ -29,32 +29,44 @@ def setup_table_cols():
     trans_df_cols = []
     for col_type, cols in col_dtypes.items():
         for col in cols:
-            col = {'name': f'{col}',
-                   'id': f'{col}',
-                   'deletable': False,
-                   'renamable': False,
-                   'hideable': True}
+            col_def = {'name': col,
+                       'id': col,
+                       'deletable': False,
+                       'renamable': False,
+                       'hideable': True}
 
             if col_type == 'date':
-                col['type'] = 'datetime'
+                col_def['type'] = 'datetime'
 
             elif col_type == 'str':
-                col['type'] = 'text'
+                col_def['type'] = 'text'
 
             elif col_type == 'numeric':
-                col['type'] = 'numeric'
+                col_def['type'] = 'numeric'
 
             elif col_type == 'cat':
-                col['presentation'] = 'dropdown'
+                col_def['presentation'] = 'dropdown'
 
             elif col_type == 'readonly':
-                col['editable'] = False
+                col_def['editable'] = False
 
             else:
                 raise ValueError(f'Unknown column type: {col_type}')
 
-            trans_df_cols.append(col)
+            trans_df_cols.append(col_def)
     return trans_df_cols
+
+# def _create_insert_file_modal() -> dbc.Modal:
+#     """
+#
+#     :return:
+#     """
+#     return dbc.Modal(
+#         title='Insert Transactions',
+#         id=TransIDs.INSERT_FILE_MODAL,
+#         children=[
+#             dmc.Text()]
+#     )
 
 
 def _create_category_change_modal() -> dmc.Modal:
@@ -71,13 +83,13 @@ def _create_category_change_modal() -> dmc.Modal:
             dmc.Space(h=20),
             dmc.Group(
                 [
-                    dmc.Button("Yes", id=TransIDs.MODAL_CAT_CHANGE_YES,
+                    dmc.Button("Yes",
+                               id=TransIDs.MODAL_CAT_CHANGE_YES,
                                color="primary"),
-                    dmc.Button(
-                        "No",
-                        color="red",
-                        variant="outline",
-                        id=TransIDs.MODAL_CAT_CHANGE_NO
+                    dmc.Button("No",
+                               color="red",
+                               variant="outline",
+                               id=TransIDs.MODAL_CAT_CHANGE_NO
                     ),
                 ],
                 position="right",
@@ -86,12 +98,38 @@ def _create_category_change_modal() -> dmc.Modal:
     )
 
 
+def _create_file_uploader():
+    uploader = dcc.Upload(
+        id='file_uploader',
+        multiple=True,
+        children=[dbc.Button('Upload File')]
+    )
+    acc_names = [acc_name for acc_name, _ in ACCOUNTS.items()]
+    dropdown = dcc.Dropdown(id=TransIDs.FILE_UPLOADER_DROPDOWN,
+                            placeholder='Select account',
+                            clearable=False,
+                            options=[{'label': f'{account}',
+                                      'value': f'{account}'} for
+                                            account in acc_names],
+                            )
+    return dbc.Card([
+                dbc.CardHeader('Upload Transactions'),
+                dropdown,
+                dmc.Space(h=8),
+                uploader,
+                ],
+            )
+
+
 def setup_table_cell_dropdowns():
     account_names = [acc_name for acc_name, _ in ACCOUNTS.items()]
+    options = []
+    for name, group in CAT_DB.get_groups_as_groupby():
+        options.extend([{'label': f'{name}: {cat}', 'value': f'{cat}'} for cat in
+                        group[CatDBSchema.CAT_NAME]])
     dropdown_options = {
         TransDBSchema.CAT: {
-            'options': [{'label': f'{cat}', 'value': f'{cat}'} for cat in
-                        CAT_DB.get_categories()]
+            'options': options
         },
         TransDBSchema.ACCOUNT: {
             'options': [{'label': f'{account}', 'value': f'{account}'} for
@@ -99,9 +137,6 @@ def setup_table_cell_dropdowns():
         },
     }
     return dropdown_options
-
-
-dash.register_page(__name__)
 
 
 def _create_trans_table() -> dash_table.DataTable:
@@ -122,22 +157,21 @@ def _create_trans_table() -> dash_table.DataTable:
                                 page_action='native',
                                 page_size=50,
                                 row_deletable=True,
-                                style_table={'height': '2000px'},
-                                             # 'overflowX': 'auto'},
+                                # style_table={'overflowX': 'auto'},
                                 columns=setup_table_cols(),
                                 dropdown=setup_table_cell_dropdowns(),
+                                css=[{'selector': 'table',
+                                      'rule': 'table-layout: fixed'}],
                                 style_data_conditional=[
                                     {'if': {'row_index': 'odd'},
-                                        'backgroundColor': 'rgb(220, 220, 220)'},
-                                    {'if': {'column_id': TransDBSchema.ID},
-                                        'width': '500px'},
+                                        'backgroundColor': 'rgb(240, 240, 240)'},
                                     {'if': {'column_id': TransDBSchema.MEMO},
-                                        'width': '50px'},
+                                        'width': '2px'}
                                 ],
                                 # style_cell={
                                 #     'overflow': 'hidden',
                                 #     'textOverflow': 'ellipsis',
-                                #     'maxWidth': 10
+                                #     'maxWidth': 50
                                 # },
                                 tooltip_data=[
                                        {
@@ -146,15 +180,18 @@ def _create_trans_table() -> dash_table.DataTable:
                                        } for row in trans_db_formatted['memo'].to_frame().to_dict('records')
 
                                    ],
-                                tooltip_duration=200,
-                                # style_data={
-                                #         'whiteSpace': 'normal',
-                                #         'height': 'auto',
-                                #     },
+                                tooltip_duration=20000,
+                                style_data={
+                                        'whiteSpace': 'normal',
+                                        'height': 'auto',
+                                    },
                                 )
 
 
 trans_table = _create_trans_table()
+cat_change_modal = _create_category_change_modal()
+upload_file_section = _create_file_uploader()
+# insert_file_modal = _create_insert_file_modal()
 
 category_picker = dbc.Card(
     children=[
@@ -190,9 +227,9 @@ date_picker = dbc.Card([
     )
 ])
 
-cat_change_modal = _create_category_change_modal()
 
-layout = dbc.Container([
+def _create_layout():
+    return dbc.Container([
     dbc.Row([
         dbc.Col([
             category_picker,
@@ -203,27 +240,36 @@ layout = dbc.Container([
             html.Br(),
             date_picker,
             html.Br(),
+            dmc.Divider(variant='dashed', size='lg'),
+            dmc.Space(h=20),
             dbc.Button('Add row',
                        id=TransIDs.ADD_ROW_BTN,
                        n_clicks=0),
-            cat_change_modal
+            dmc.Space(h=20),
+            upload_file_section,
+            cat_change_modal,
+            # insert_file_modal
         ], width=2),
-        dbc.Col(children=[trans_table,
+        dbc.Col(children=[_create_trans_table(),
                           html.Div(id=TransIDs.PLACEDHOLDER,
                                    style={'display': 'none'})],
-                width=10)
+                width=10),
+        dcc.Store(id=TransIDs.INSERT_FILE_SUMMARY_STORE)
     ])
 ])
+
+
+layout = _create_layout
+
 
 """
 Callbacks
 """
 
-
 def _detect_changes_in_table(df: pd.DataFrame,
                              df_previous: pd.DataFrame,
                              row_id_name: Optional[str] = None) \
-        -> Optional[dict]:
+        -> Optional[List[dict]]:
     """
      Modified from: https://community.plotly.com/t/detecting-changed-cell-in-editable-datatable/26219/2
     :param df:
@@ -264,11 +310,7 @@ def _detect_changes_in_table(df: pd.DataFrame,
                 }
             )
 
-    # if there are no changes then changes is None.
-    # if there is one change we return it
-    # if there are multiple changes, should only happen when changing category
-    # col, we need to think what todo
-    return changes #[0] if len(changes) == 1 else None
+    return changes
 
 
 def _trans_table_callback_trigger(data: List[dict],
@@ -436,7 +478,7 @@ def add_row(n_clicks, rows, columns):
     :return: list of rows with new row appended
     """
     if n_clicks > 0:
-        new_row = {col['id']: '' for col in columns}
+        new_row = {col['id']: None for col in columns}
         date = datetime.now().strftime('%Y-%m-%d')
         new_row['date'] = date
         rows.insert(0, new_row)
@@ -465,14 +507,14 @@ def _apply_changes_to_trans_db_no_cat(change: dict):
     :return:
     """
     ind, col_name = change['index'], change['column_name']
-    prev_val = change['previous_value']
-    db_val = TRANS_DB[col_name].iloc[ind]
-    if col_name == TransDBSchema.DATE:
-        db_val = str(db_val.date())
-    db_val = None if pd.isna(db_val) else db_val
-    if db_val != prev_val:
-        raise ValueError('mismatch between prev_value and db value when'
-                         'trying to apply changes')
+    # prev_val = change['previous_value']
+    # db_val = TRANS_DB[col_name].iloc[ind]
+    # if col_name == TransDBSchema.DATE:
+    #     db_val = str(db_val.date())
+    # db_val = None if pd.isna(db_val) else db_val
+    # if db_val != prev_val:
+    #     raise ValueError('mismatch between prev_value and db value when'
+    #                      'trying to apply changes')
 
     TRANS_DB.update_data(col_name=col_name, index=ind,
                          value=change['current_value'])
@@ -497,8 +539,35 @@ def _apply_changes_to_trans_db_cat_col(change: dict, all_trans: bool,
         payee = TRANS_DB.loc[change['index'], TransDBSchema.PAYEE]
         TRANS_DB.loc[TRANS_DB[TransDBSchema.PAYEE] == payee, col]\
             = change['current_value']
+        TRANS_DB.update_payee_to_cat_mapping(payee, cat=change['current_value'])
         uuids = TRANS_DB.loc[TRANS_DB[TransDBSchema.PAYEE] == payee,
                              TransDBSchema.ID].to_list()
         TRANS_DB.save_db_from_uuids(uuids)
     else:
         TRANS_DB.update_cat_col_data(col, change['index'], change['current_value'])
+
+
+@dash.callback(Output(TransIDs.INSERT_FILE_SUMMARY_STORE, 'data'),
+               Input(TransIDs.FILE_UPLOADER, 'contents'),
+               State(TransIDs.FILE_UPLOADER, 'filename'),
+               State(TransIDs.FILE_UPLOADER_DROPDOWN, 'value'),
+               config_prevent_initial_callbacks=True)
+def update_output(list_of_contents: List[Any],
+                  list_of_names: List[str],
+                  dd_val: str):
+    if dd_val is None:
+        return None  # todo open err modal
+
+    for file, f_name in zip(list_of_contents, list_of_names):
+        content_type, content_string = file.split(',')
+        decoded = base64.b64decode(content_string)
+        if f_name.endswith('csv'):
+            file = io.StringIO(decoded.decode('utf-8'))
+        elif f_name.endswith('xlsx'):
+            file = io.BytesIO(decoded)
+        else:
+            raise ValueError(f'Unknown file type {f_name} for import')
+
+        trans_file = import_file(file, account_name=dd_val, cat_db=CAT_DB)
+        insert_summary = TRANS_DB.insert_data(trans_file)
+        return insert_summary
