@@ -75,6 +75,17 @@ def set_cat_col_categories(df: pd.DataFrame,
     return df
 
 
+def check_null(value: Any) -> bool:
+    """ check if a value is null """
+    if value is None:
+        return True
+    if isinstance(value, str) and value == '':
+        return True
+    if isinstance(value, float) and np.isnan(value):
+        return True
+    return False
+
+
 SETTINGS = get_settings()
 SHEKEL_SYM = '₪'
 

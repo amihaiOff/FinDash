@@ -7,7 +7,7 @@ import pandas as pd
 
 from categories_db import CategoriesDB
 from utils import SETTINGS, create_uuid, format_date_col_for_display, \
-    set_cat_col_categories
+    set_cat_col_categories, check_null
 
 """
 The purpose of this module is to provide a database for transactions.
@@ -318,7 +318,7 @@ class TransactionsDBParquet:
         """
         # update mapping of payee to category
         payee = self._db.loc[index, TransDBSchema.PAYEE]
-        if self._db.loc[index, col_name] is None:  # only update first time
+        if check_null(self._db.loc[index, col_name]):  # only update first time
             self._cat_db.update_payee_to_cat_mapping(payee, cat=value)
 
         self._update_cat_group(index, value)

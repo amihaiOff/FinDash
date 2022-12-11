@@ -549,7 +549,8 @@ def _apply_changes_to_trans_db_cat_col(change: dict, all_trans: bool,
         payee = TRANS_DB.loc[change['index'], TransDBSchema.PAYEE]
         TRANS_DB.loc[TRANS_DB[TransDBSchema.PAYEE] == payee, col]\
             = change['current_value']
-        TRANS_DB.update_payee_to_cat_mapping(payee, cat=change['current_value'])
+        if change['column_name'] == TransDBSchema.CAT:
+            CAT_DB.update_payee_to_cat_mapping(payee, cat=change['current_value'])
         uuids = TRANS_DB.loc[TRANS_DB[TransDBSchema.PAYEE] == payee,
                              TransDBSchema.ID].to_list()
         TRANS_DB.save_db_from_uuids(uuids)
