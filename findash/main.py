@@ -59,6 +59,7 @@ def setup_pages_container(app):
                          children=[
                              dbc.NavItem(dbc.NavLink('Monthly', href='/monthly')),
                              dbc.NavItem(dbc.NavLink('Breakdown', href='/breakdown')),
+                             dbc.NavItem(dbc.NavLink('Categories', href='/categories')),
                              dbc.NavItem(dbc.NavLink('Transactions', href='/transactions'))
                          ]),
         html.Br(),

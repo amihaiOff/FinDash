@@ -47,7 +47,7 @@ def setup_table_cols():
 
             elif col_type == 'numeric':
                 col_def['type'] = 'numeric'
-                col_def['format'] = Format().symbol(Symbol.yes).symbol_suffix(SHEKEL_SYM)
+                col_def['format'] = Format(group=',').symbol(Symbol.yes).symbol_suffix(SHEKEL_SYM)
 
             elif col_type == 'cat':
                 col_def['presentation'] = 'dropdown'

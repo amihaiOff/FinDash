@@ -94,7 +94,7 @@ def _create_banner_card(title: str,
                         id: str) -> dbc.Card:
     return dbc.Card([
         dbc.CardHeader(title),
-        html.H2(f"{value}{SHEKEL_SYM}"),
+        html.H2(f"{value:,.0f}{SHEKEL_SYM}"),
         html.P(subtitle, style={'color': color})],
         body=True,
         id=id,
@@ -108,7 +108,7 @@ def _create_checking_card():
 
     checking_card = dbc.Card([
                     dbc.CardHeader('Checking'),
-                    html.H2(f"{checking_total:.0f}{SHEKEL_SYM}"),
+                    html.H2(f"{checking_total:,.0f}{SHEKEL_SYM}"),
                     html.P(f"+12% MoM(?)", style={'color': 'green'})], # todo - think of what the subtitle needs to be
                     body=True,
                     id=MonthlyIDs.CHECKING_CARD,
@@ -233,7 +233,7 @@ def cat_content(title: str,
                     span=2),
             dmc.Col(dmc.Progress(value=progress_val, label=f"{usage}/{cat_budget}",
                                  size=size, color=color), span=5),
-            dmc.Col(dmc.Text(f'Remaining: {cat_budget-usage}'), span=2)
+            dmc.Col(dmc.Text(f'Remaining: {cat_budget-usage:,.0f}'), span=2)
         ],
         gutter="xs",
 )
@@ -294,6 +294,15 @@ def _create_layout():
     CURR_TRANS_DB = TRANS_DB.get_current_month_trans()
 
     return dbc.Container([
+        dbc.Row([
+           dbc.Col([
+               html.H1('Month: 2022-12')
+           ], width=8),
+           dbc.Col([
+               dcc.Dropdown(options=[1,2,3], value=1)
+           ], width=2)
+        ]),
+        dmc.Space(h=50),
         dbc.Row([
            dbc.Col(_create_checking_card(), width=2),
            dbc.Col(_create_income_card(), width=2),
