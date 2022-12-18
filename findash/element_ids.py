@@ -23,6 +23,13 @@ class MonthlyIDs:
     CHECKING_CARD = 'checking_card'
     CHECKING_POPOVER = 'checking_popover'
     SAVINGS_CARD = 'savings_card'
+    MONTHLY_BANNER = 'monthly_banner'
+    MONTHLY_DD = 'monthly_dd'
+    MONTH_STORE = 'month_store'
+    MONTHLY_DD_COL = 'monthly_dd_col'
+    URL = 'url'
+    DUMMY_DIV = 'dummy_div'
+    TRANS_DRAWER = 'trans_drawer'
 
 
 class BreakdownIDs:

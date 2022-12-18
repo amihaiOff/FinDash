@@ -117,6 +117,7 @@ class TransactionsDBParquet:
                  db: pd.DataFrame = pd.DataFrame()):
         self._db: pd.DataFrame = db
         self._cat_db = cat_db
+        self.specific_month = None
 
     def __getitem__(self, item):
         return TransactionsDBParquet(self._cat_db, self._db.__getitem__(item))
@@ -166,6 +167,10 @@ class TransactionsDBParquet:
         final_df = set_cat_col_categories(final_df, category_vals)
         self._db = final_df
         self._sort_by_date()
+
+        # set monthly_trans
+        self.set_specific_month(str(datetime.now().year),
+                                str(datetime.now().month))
 
     @staticmethod
     def _get_category_vals(df) -> Dict[str, pd.CategoricalDtype]:
@@ -347,6 +352,11 @@ class TransactionsDBParquet:
 
         self.save_db_from_uuids(uuid_list)
 
+    def set_specific_month(self, year: str, month: str):
+        monthly_trans = self.get_trans_by_month(year, month)
+        self.specific_month = TransactionsDBParquet(self._cat_db, monthly_trans)
+
+
     def _get_months_from_uuid(self, uuid_lst: List[str]) -> List[
         Tuple[str, str]]:
         """
@@ -412,15 +422,31 @@ class TransactionsDBParquet:
 
         return db_tmp
 
-    def get_current_month_trans(self):
+    # def get_current_month_trans(self):
+    #     """
+    #     get data of current month
+    #     :return: dataframe of data
+    #     """
+    #     current_month = datetime.now().strftime('%Y-%m')
+    #     curr_trans = self._db[self._db[TransDBSchema.DATE].dt.strftime('%Y-%m')
+    #                           == current_month]
+    #     return TransactionsDBParquet(self._cat_db, curr_trans)
+
+    def get_trans_by_month(self, year: str, month: str) -> pd.DataFrame:
         """
-        get data of current month
+        get transactions of specific month
+        :param year: year in for digit format (e.g. 2020)
+        :param month: month in two digit format (e.g. 04 for april)
         :return: dataframe of data
         """
-        current_month = datetime.now().strftime('%Y-%m')
-        curr_trans = self._db[self._db[TransDBSchema.DATE].dt.strftime('%Y-%m')
-                              == current_month]
-        return TransactionsDBParquet(self._cat_db, curr_trans)
+        if len(year) != 4 or len(month) != 2:
+            raise ValueError('year must be in 4 digit format and month must be'
+                             ' in two digit format')
+        target_date = f'{year}-{month}'
+        target_trans = self._db[self._db[TransDBSchema.DATE].dt.strftime(
+            '%Y-%m') == target_date]
+
+        return target_trans
 
     def get_records(self) -> dict:
         """

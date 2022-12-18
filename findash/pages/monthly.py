@@ -2,28 +2,43 @@ from typing import Dict, Tuple, Optional
 
 import dash
 import numpy as np
-from dash import html
+from dash import html, Output, Input, State
 import dash_bootstrap_components as dbc
 from dash import dcc
 import dash_mantine_components as dmc
 
 import pandas as pd
+from dash.exceptions import PreventUpdate
 
 from main import CAT_DB, TRANS_DB
 from element_ids import MonthlyIDs
 from categories_db import CatDBSchema
 from transactions_db import TransDBSchema
 from accounts import ACCOUNTS
-from utils import SHEKEL_SYM, conditional_coloring
+from utils import SHEKEL_SYM, conditional_coloring, get_current_year_month
 
 dash.register_page(__name__)
 
 
-CURR_TRANS_DB = TRANS_DB.get_current_month_trans()
+def _create_month_banner():
+    return html.H1(
+        id=MonthlyIDs.MONTHLY_BANNER,
+    )
+
+
+def _create_month_dd():
+    months = TRANS_DB[TransDBSchema.DATE].dt.strftime('%Y-%m')
+    months = months.unique().tolist()
+    return dcc.Dropdown(
+        id=MonthlyIDs.MONTHLY_DD,
+        options=months,
+        value=None,
+        clearable=False
+    )
 
 
 def _calculate_outflow_total(last: bool = False) -> float:
-    db = TRANS_DB if not last else CURR_TRANS_DB
+    db = TRANS_DB if not last else TRANS_DB.specific_month
     return db[TransDBSchema.OUTFLOW].sum()
 
 
@@ -34,7 +49,7 @@ def _calculate_checking_total(last: bool = False) -> float:
     :param last: if True, sum only this month's inflow
     """
     checking_accounts = [acc.institution for acc in ACCOUNTS.values()]
-    db = TRANS_DB if not last else CURR_TRANS_DB
+    db = TRANS_DB if not last else TRANS_DB.specific_month
     return db[db[TransDBSchema.ACCOUNT].isin(checking_accounts)][
             TransDBSchema.INFLOW].sum()
 
@@ -53,7 +68,7 @@ def _curr_expenses_from_income_pct() -> Optional[float]:
     current_income = _calculate_checking_total(last=True)
     if current_income == 0:
         return None
-    current_expenses = CURR_TRANS_DB[TransDBSchema.OUTFLOW].sum()
+    current_expenses = TRANS_DB.specific_month[TransDBSchema.OUTFLOW].sum()
     return current_expenses * 100 / current_income
 
 
@@ -64,7 +79,7 @@ def _pct_budget_used():
 
 
 def _get_balance_per_account_for_popup():
-    per_account = CURR_TRANS_DB.groupby(TransDBSchema.ACCOUNT)[
+    per_account = TRANS_DB.specific_month.groupby(TransDBSchema.ACCOUNT)[
         TransDBSchema.INFLOW].sum()
     checking_str = [acc.institution for acc in ACCOUNTS.values() if
                     acc.is_checking]
@@ -76,7 +91,7 @@ def _get_balance_per_account_for_popup():
 
 
 def _get_income_per_account_popup():
-    per_account = CURR_TRANS_DB.groupby(TransDBSchema.ACCOUNT)[
+    per_account = TRANS_DB.specific_month.groupby(TransDBSchema.ACCOUNT)[
         TransDBSchema.OUTFLOW].sum()
     non_checking_str = [acc.institution for acc in ACCOUNTS.values() if
                         acc.is_checking]
@@ -104,6 +119,8 @@ def _create_banner_card(title: str,
 
 
 def _create_checking_card():
+    print('=== checking card ===')
+    print(TRANS_DB.specific_month.iloc[0,0])
     checking_total = _calculate_checking_total()
 
     checking_card = dbc.Card([
@@ -208,9 +225,11 @@ HIGH_USAGE_THR = 100
 def cat_content(title: str,
                 usage: float,
                 cat_budget: float,
+                button_id: str,
                 size: str = 'lg',
-                text_weight=500):
+                text_weight=500,):
     """
+
     create content for category progress line
     :param title:
     :param usage:
@@ -233,7 +252,11 @@ def cat_content(title: str,
                     span=2),
             dmc.Col(dmc.Progress(value=progress_val, label=f"{usage}/{cat_budget}",
                                  size=size, color=color), span=5),
-            dmc.Col(dmc.Text(f'Remaining: {cat_budget-usage:,.0f}'), span=2)
+            dmc.Col(dmc.Text(f'Remaining: {cat_budget-usage:,.0f}'), span=2),
+            dmc.Col(dmc.Button('View',
+                               id=button_id,
+                               color='blue', variant='light',
+                               size='sm'), span=1)
         ],
         gutter="xs",
 )
@@ -253,9 +276,10 @@ def accordion_item(group_title: str,
     """
     return dmc.AccordionItem([
         dmc.AccordionControl(cat_content(group_title, group_usage, group_budget,
+                                         button_id=f'btn-{group_title}',
                                          size='xl', text_weight=700)),
         dmc.AccordionPanel([
-            cat_content(title, usage, budget) for title, (usage, budget) in
+            cat_content(title, usage, budget, f'btn-{title}') for title, (usage, budget) in
             cat_stats.items()
         ])
     ],
@@ -268,8 +292,9 @@ def create_cat_usage(group: pd.core.groupby.generic.DataFrameGroupBy):
     for ind, row in group.iterrows():
         cat_name = row[CatDBSchema.CAT_NAME]
         budget = row[CatDBSchema.BUDGET]
-        usage = CURR_TRANS_DB[
-                        CURR_TRANS_DB[TransDBSchema.CAT] == cat_name][
+        specific_month = TRANS_DB.specific_month
+        usage = specific_month[
+                        specific_month[TransDBSchema.CAT] == cat_name][
                                                     TransDBSchema.AMOUNT].sum()
         cat_dict[cat_name] = (usage, budget)
     return cat_dict
@@ -279,7 +304,7 @@ def create_accordion_items():
     accordion_items = []
     for group_name, group in CAT_DB.get_groups_as_groupby():
         group_budget = group[CatDBSchema.BUDGET].sum()
-        group_usage = CURR_TRANS_DB.get_data_by_group(group_name)[
+        group_usage = TRANS_DB.specific_month.get_data_by_group(group_name)[
             TransDBSchema.AMOUNT].sum()
 
         categories = create_cat_usage(group)
@@ -290,19 +315,15 @@ def create_accordion_items():
 
 
 def _create_layout():
-    global CURR_TRANS_DB
-    CURR_TRANS_DB = TRANS_DB.get_current_month_trans()
-
     return dbc.Container([
+        html.Div(id=MonthlyIDs.DUMMY_DIV),
+        dcc.Store(id=MonthlyIDs.MONTH_STORE, data=get_current_year_month(),
+                  storage_type='session'),
+        dcc.Location(id=MonthlyIDs.URL, refresh=True),
         dbc.Row([
-           dbc.Col([
-               html.H1('Month: 2022-12')
-           ], width=8),
-           dbc.Col([
-               dcc.Dropdown(options=[1,2,3], value=1)
-           ], width=2)
-        ]),
-        dmc.Space(h=50),
+           dbc.Col([_create_month_banner()], width=8),
+           dbc.Col(id=MonthlyIDs.MONTHLY_DD_COL, width=2)]),
+        dmc.Space(h=30),
         dbc.Row([
            dbc.Col(_create_checking_card(), width=2),
            dbc.Col(_create_income_card(), width=2),
@@ -311,6 +332,7 @@ def _create_layout():
            dbc.Col(_create_notif_card(), width=4)]),
         html.Br(),
         dbc.Row([
+            dmc.Drawer(id=MonthlyIDs.TRANS_DRAWER),
             dmc.AccordionMultiple(
                 children=create_accordion_items())
         ])
@@ -318,3 +340,57 @@ def _create_layout():
 
 
 layout = _create_layout
+
+
+# @dash.callback(
+#     Output(MonthlyIDs.MONTH_STORE, 'clear_data'),
+#     Input(MonthlyIDs.DUMMY_DIV, 'n_clicks'),
+# )
+# def clear_monthly_store(_):
+#     print('=== clear store ===')
+#     return True
+
+
+@dash.callback(
+    Output(MonthlyIDs.MONTH_STORE, 'data'),
+    Output(MonthlyIDs.URL, 'href'),
+    Input(MonthlyIDs.MONTHLY_DD, 'value'),
+    State(MonthlyIDs.MONTH_STORE, 'data'),
+)
+def _change_month(dd_value, month_store):
+    if month_store == dd_value:
+        raise PreventUpdate
+
+    year, month = month_store.split('-')
+    TRANS_DB.set_specific_month(year, month)
+
+    print(f'=== dd update ===')
+    print(dd_value)
+    return dd_value, '/monthly'
+
+
+@dash.callback(
+    Output(MonthlyIDs.MONTHLY_DD_COL, 'children'),
+    Output(MonthlyIDs.MONTHLY_BANNER, 'children'),
+    Input(MonthlyIDs.DUMMY_DIV, 'n_clicks'),
+    State(MonthlyIDs.MONTH_STORE, 'data'),
+)
+def update_month_dd(_, month_store):
+    print('=== in callback ===')
+    # print('data', year, month)
+    print('specific', TRANS_DB.specific_month.iloc[0, 0])
+
+    dd = _create_month_dd()
+    dd.value = month_store
+    return [dd], month_store
+
+
+# @dash.callback(
+#     Output(MonthlyIDs.TRANS_DRAWER, "opened"),
+#     Output(MonthlyIDs.TRANS_DRAWER, "children"),
+#     Input("drawer-demo-button", "n_clicks"),
+#     prevent_initial_call=True,
+# )
+# def drawer_demo(n_clicks):
+#
+#     return True

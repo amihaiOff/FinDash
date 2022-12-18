@@ -11,6 +11,10 @@ def create_uuid():
     return uuid.uuid4().hex
 
 
+def get_current_year_month():
+    return f'{datetime.datetime.now().year}-{datetime.datetime.now().month}'
+
+
 def get_settings() -> Dict[str, Any]:
     return yaml.safe_load(open('settings.yaml'))
 
