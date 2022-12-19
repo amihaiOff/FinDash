@@ -77,7 +77,10 @@ class FIBI(Account):
 
     def _get_col_mapping(self) -> ColMapping:
         col_mapping = {
-
+            'תאריך': 'date',
+            'תיאור': 'payee',
+            'זכות': 'inflow',
+            'חובה': 'outflow'
         }
 
         return ColMapping(col_mapping)
@@ -107,9 +110,9 @@ class CAL(Account):
         return ColMapping(col_mapping)
 
     def process_trans_file(self, trans_file: pd.DataFrame):
-        trans_file.columns = trans_file.iloc[1, :]
-        trans_file = trans_file.drop(trans_file.index[:2])
-        trans_file = trans_file.drop(trans_file.index[-1])
+        trans_file.columns = trans_file.iloc[1, :]  # set columns names
+        trans_file = trans_file.drop(trans_file.index[:2])  # remove the first 2 rows which are headers
+        trans_file = trans_file.drop(trans_file.index[-1])  # remove the last row which is a summary
         trans_file = self._apply_col_mapping(trans_file)
         return trans_file
 

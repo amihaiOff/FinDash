@@ -2,7 +2,7 @@ from typing import Dict, Tuple, Optional
 
 import dash
 import numpy as np
-from dash import html, Output, Input, State
+from dash import html, Output, Input, State, ctx, ALL
 import dash_bootstrap_components as dbc
 from dash import dcc
 import dash_mantine_components as dmc
@@ -15,7 +15,9 @@ from element_ids import MonthlyIDs
 from categories_db import CatDBSchema
 from transactions_db import TransDBSchema
 from accounts import ACCOUNTS
-from utils import SHEKEL_SYM, conditional_coloring, get_current_year_month
+from utils import SHEKEL_SYM, conditional_coloring, get_current_year_month, \
+    create_table
+
 
 dash.register_page(__name__)
 
@@ -225,7 +227,7 @@ HIGH_USAGE_THR = 100
 def cat_content(title: str,
                 usage: float,
                 cat_budget: float,
-                button_id: str,
+                button_id: dict,
                 size: str = 'lg',
                 text_weight=500,):
     """
@@ -276,10 +278,13 @@ def accordion_item(group_title: str,
     """
     return dmc.AccordionItem([
         dmc.AccordionControl(cat_content(group_title, group_usage, group_budget,
-                                         button_id=f'btn-{group_title}',
+                                         button_id={'type': 'drawer-btn',
+                                                    'index': group_title},
                                          size='xl', text_weight=700)),
         dmc.AccordionPanel([
-            cat_content(title, usage, budget, f'btn-{title}') for title, (usage, budget) in
+            cat_content(title, usage, budget,
+                        button_id={'type': 'drawer-btn', 'index': title})
+            for title, (usage, budget) in
             cat_stats.items()
         ])
     ],
@@ -332,7 +337,7 @@ def _create_layout():
            dbc.Col(_create_notif_card(), width=4)]),
         html.Br(),
         dbc.Row([
-            dmc.Drawer(id=MonthlyIDs.TRANS_DRAWER),
+            dmc.Drawer(id=MonthlyIDs.TRANS_DRAWER, size='50%'),
             dmc.AccordionMultiple(
                 children=create_accordion_items())
         ])
@@ -361,11 +366,8 @@ def _change_month(dd_value, month_store):
     if month_store == dd_value:
         raise PreventUpdate
 
-    year, month = month_store.split('-')
+    year, month = dd_value.split('-')
     TRANS_DB.set_specific_month(year, month)
-
-    print(f'=== dd update ===')
-    print(dd_value)
     return dd_value, '/monthly'
 
 
@@ -376,21 +378,22 @@ def _change_month(dd_value, month_store):
     State(MonthlyIDs.MONTH_STORE, 'data'),
 )
 def update_month_dd(_, month_store):
-    print('=== in callback ===')
-    # print('data', year, month)
-    print('specific', TRANS_DB.specific_month.iloc[0, 0])
-
     dd = _create_month_dd()
     dd.value = month_store
     return [dd], month_store
 
 
-# @dash.callback(
-#     Output(MonthlyIDs.TRANS_DRAWER, "opened"),
-#     Output(MonthlyIDs.TRANS_DRAWER, "children"),
-#     Input("drawer-demo-button", "n_clicks"),
-#     prevent_initial_call=True,
-# )
-# def drawer_demo(n_clicks):
-#
-#     return True
+@dash.callback(
+    Output(MonthlyIDs.TRANS_DRAWER, "opened"),
+    Output(MonthlyIDs.TRANS_DRAWER, "children"),
+    Input({'type': "drawer-btn", 'index': ALL},  "n_clicks"),
+    prevent_initial_call=True,
+)
+def drawer_demo(_):
+    selection = ctx.triggered_id['index']
+    selection_trans = TRANS_DB.specific_month.get_data_by_cat(selection)
+    selection_trans = selection_trans[TransDBSchema.get_cols_for_trans_drawer()]
+    table_parts = create_table(selection_trans)
+    table = dmc.Table(table_parts, striped=True, highlightOnHover=True)
+
+    return True, table

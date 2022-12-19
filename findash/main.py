@@ -79,7 +79,8 @@ TRANS_DB = setup_trans_db(load_type, CAT_DB)
 
 
 def setup_app():
-    app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], use_pages=True)
+    app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP],
+               use_pages=True, suppress_callback_exceptions=True)
     setup_pages_container(app)
     return app
 

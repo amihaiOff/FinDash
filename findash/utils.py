@@ -5,6 +5,15 @@ import numpy as np
 import pandas as pd
 import yaml
 from typing import Any, Dict, Tuple, Optional
+from dash import html
+
+
+def get_settings() -> Dict[str, Any]:
+    return yaml.safe_load(open('settings.yaml'))
+
+
+SETTINGS = get_settings()
+SHEKEL_SYM = '₪'
 
 
 def create_uuid():
@@ -15,8 +24,6 @@ def get_current_year_month():
     return f'{datetime.datetime.now().year}-{datetime.datetime.now().month}'
 
 
-def get_settings() -> Dict[str, Any]:
-    return yaml.safe_load(open('settings.yaml'))
 
 
 def conditional_coloring(value: float,
@@ -90,7 +97,10 @@ def check_null(value: Any) -> bool:
     return False
 
 
-SETTINGS = get_settings()
-SHEKEL_SYM = '₪'
-
+def create_table(df: pd.DataFrame):
+    columns, values = df.columns, df.values
+    header = [html.Tr([html.Th(col) for col in columns])]
+    rows = [html.Tr([html.Td(cell) for cell in row]) for row in values]
+    table = [html.Thead(header), html.Tbody(rows)]
+    return table
 

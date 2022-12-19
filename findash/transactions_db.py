@@ -50,6 +50,10 @@ class TransDBSchema:
         return cls.DATE, cls.PAYEE, cls.AMOUNT
 
     @classmethod
+    def get_cols_for_trans_drawer(cls) -> List[str]:
+        return [cls.DATE, cls.PAYEE, cls.MEMO, cls.INFLOW, cls.OUTFLOW]
+
+    @classmethod
     def get_non_mandatory_cols(cls) -> Dict[str, Any]:
         """
         dictionary of non-mandatory cols (keys) to add to trans file to align with
