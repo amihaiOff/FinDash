@@ -16,14 +16,22 @@ SETTINGS = get_settings()
 SHEKEL_SYM = '₪'
 
 
+class MappingDict(dict):
+    """
+    class for using in ps.Series mapping that keeps the original value if not
+    found in the mapping
+    example: pd.Series(['a', 'b', 'c']).map(MappingDict({'a': 'A'}))
+    """
+    def __missing__(self, key):
+        return key
+
+
 def create_uuid():
     return uuid.uuid4().hex
 
 
 def get_current_year_month():
     return f'{datetime.datetime.now().year}-{datetime.datetime.now().month}'
-
-
 
 
 def conditional_coloring(value: float,

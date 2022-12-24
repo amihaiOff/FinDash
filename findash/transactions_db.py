@@ -19,7 +19,7 @@ This is the recorded history of the transactions.
 @dataclass
 class TransDBSchema:
     ID: str = 'id'
-    DATE: datetime = 'date'
+    DATE: str = 'date'
     PAYEE: str = 'payee'
     CAT: str = 'cat'
     CAT_GROUP: str = 'cat_group'
@@ -43,11 +43,13 @@ class TransDBSchema:
             cls.OUTFLOW: 'Outflow',
         }
     @classmethod
-    def get_mandatory_cols(cls) -> tuple:
+    def get_mandatory_col_sets(cls) -> Tuple[List[Union[str, float]]]:
         """
         mandatory cols every raw transactions file must have
         """
-        return cls.DATE, cls.PAYEE, cls.AMOUNT
+        option1 = [cls.DATE, cls.PAYEE, cls.AMOUNT]
+        option2 = [cls.DATE, cls.PAYEE, cls.INFLOW, cls.OUTFLOW]
+        return option1, option2
 
     @classmethod
     def get_cols_for_trans_drawer(cls) -> List[str]:

@@ -12,10 +12,10 @@ from dash.dash_table.Format import Format, Symbol
 
 from main import CAT_DB, TRANS_DB
 from accounts import ACCOUNTS
-from transactions_db import TransDBSchema, TransactionsDBParquet
+from transactions_db import TransDBSchema
 from categories_db import CatDBSchema
 from element_ids import TransIDs
-from utils import format_date_col_for_display, SETTINGS, SHEKEL_SYM
+from utils import format_date_col_for_display, SHEKEL_SYM
 from transactions_importer import import_file
 
 # for filtering the trans table
@@ -165,8 +165,6 @@ def _create_trans_table() -> dash_table.DataTable:
                                 style_table={'overflowX': 'auto'},
                                 columns=setup_table_cols(),
                                 dropdown=setup_table_cell_dropdowns(),
-                                # css=[{'selector': 'table',
-                                #       'rule': 'table-layout: fixed'}],
                                 style_data_conditional=[
                                     {'if': {'row_index': 'odd'},
                                         'backgroundColor': 'rgb(240, 246, 255)'},
@@ -252,9 +250,14 @@ def _create_layout():
             html.Br(),
             dmc.Divider(variant='dashed', size='lg'),
             dmc.Space(h=20),
-            dbc.Button('Add row',
-                       id=TransIDs.ADD_ROW_BTN,
-                       n_clicks=0),
+            dbc.Row([
+                dbc.Col([dbc.Button('Add row',
+                                    id=TransIDs.ADD_ROW_BTN,
+                                    n_clicks=0,
+                                    style=({'font-size': '14px'}))]),
+                dbc.Col([dbc.Button('Split',
+                                    style=({'font-size': '14px'}))])
+            ]),
             dmc.Space(h=20),
             upload_file_section,
             cat_change_modal,
@@ -516,6 +519,7 @@ def _apply_changes_to_trans_db_no_cat(change: dict):
                                     current_value
     :return:
     """
+    # todo - is this func needed?
     ind, col_name = change['index'], change['column_name']
     # prev_val = change['previous_value']
     # db_val = TRANS_DB[col_name].iloc[ind]
@@ -574,7 +578,7 @@ def update_output(list_of_contents: List[Any],
         decoded = base64.b64decode(content_string)
         if f_name.endswith('csv'):
             file = io.StringIO(decoded.decode('utf-8'))
-        elif f_name.endswith('xlsx'):
+        elif f_name.endswith('xlsx') or f_name.endswith('xls'):
             file = io.BytesIO(decoded)
         else:
             raise ValueError(f'Unknown file type {f_name} for import')

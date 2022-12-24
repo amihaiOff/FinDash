@@ -16,7 +16,7 @@ from categories_db import CatDBSchema
 from transactions_db import TransDBSchema
 from accounts import ACCOUNTS
 from utils import SHEKEL_SYM, conditional_coloring, get_current_year_month, \
-    create_table
+    create_table, format_date_col_for_display
 
 
 dash.register_page(__name__)
@@ -121,8 +121,6 @@ def _create_banner_card(title: str,
 
 
 def _create_checking_card():
-    print('=== checking card ===')
-    print(TRANS_DB.specific_month.iloc[0,0])
     checking_total = _calculate_checking_total()
 
     checking_card = dbc.Card([
@@ -227,7 +225,7 @@ HIGH_USAGE_THR = 100
 def cat_content(title: str,
                 usage: float,
                 cat_budget: float,
-                button_id: dict,
+                button_id: Optional[dict] = None,
                 size: str = 'lg',
                 text_weight=500,):
     """
@@ -236,6 +234,7 @@ def cat_content(title: str,
     :param title:
     :param usage:
     :param cat_budget:
+    :param button_id:
     :param size:
     :param text_weight:
     :return:
@@ -247,21 +246,25 @@ def cat_content(title: str,
         'red': (HIGH_USAGE_THR, np.inf)
     })
     progress_val = min(100, usage_pct)
-    return dmc.Grid(
-        children=[
+    grid_children = [
             dmc.Col(dmc.Text(f"{title}", weight=text_weight), span=2),
             dmc.Col(dmc.Text(f"{usage_pct}% budget used", align="center"),
                     span=2),
             dmc.Col(dmc.Progress(value=progress_val, label=f"{usage}/{cat_budget}",
                                  size=size, color=color), span=5),
             dmc.Col(dmc.Text(f'Remaining: {cat_budget-usage:,.0f}'), span=2),
-            dmc.Col(dmc.Button('View',
-                               id=button_id,
-                               color='blue', variant='light',
-                               size='sm'), span=1)
-        ],
-        gutter="xs",
-)
+        ]
+
+    if button_id is not None:
+        grid_children.append(dmc.Col(dmc.Button('View',
+                                                id=button_id,
+                                                color='blue',
+                                                variant='light',
+                                                size='sm'),
+                                     span=1)
+                             )
+
+    return dmc.Grid(grid_children, gutter="xs")
 
 # def _create_progress_sections(value):
 #     today = datetime.datetime.today().day
@@ -278,8 +281,6 @@ def accordion_item(group_title: str,
     """
     return dmc.AccordionItem([
         dmc.AccordionControl(cat_content(group_title, group_usage, group_budget,
-                                         button_id={'type': 'drawer-btn',
-                                                    'index': group_title},
                                          size='xl', text_weight=700)),
         dmc.AccordionPanel([
             cat_content(title, usage, budget,
@@ -301,7 +302,8 @@ def create_cat_usage(group: pd.core.groupby.generic.DataFrameGroupBy):
         usage = specific_month[
                         specific_month[TransDBSchema.CAT] == cat_name][
                                                     TransDBSchema.AMOUNT].sum()
-        cat_dict[cat_name] = (usage, budget)
+
+        cat_dict[cat_name] = (int(usage), budget)
     return cat_dict
 
 
@@ -311,6 +313,7 @@ def create_accordion_items():
         group_budget = group[CatDBSchema.BUDGET].sum()
         group_usage = TRANS_DB.specific_month.get_data_by_group(group_name)[
             TransDBSchema.AMOUNT].sum()
+        group_usage = int(group_usage)
 
         categories = create_cat_usage(group)
         accordion_items.append(accordion_item(group_name, group_usage,
@@ -337,7 +340,8 @@ def _create_layout():
            dbc.Col(_create_notif_card(), width=4)]),
         html.Br(),
         dbc.Row([
-            dmc.Drawer(id=MonthlyIDs.TRANS_DRAWER, size='50%'),
+            dmc.Drawer(id=MonthlyIDs.TRANS_DRAWER, size='50%',
+                       style={'overflowY': 'auto', 'height': '100%'}),
             dmc.AccordionMultiple(
                 children=create_accordion_items())
         ])
@@ -345,15 +349,6 @@ def _create_layout():
 
 
 layout = _create_layout
-
-
-# @dash.callback(
-#     Output(MonthlyIDs.MONTH_STORE, 'clear_data'),
-#     Input(MonthlyIDs.DUMMY_DIV, 'n_clicks'),
-# )
-# def clear_monthly_store(_):
-#     print('=== clear store ===')
-#     return True
 
 
 @dash.callback(
@@ -392,8 +387,19 @@ def update_month_dd(_, month_store):
 def drawer_demo(_):
     selection = ctx.triggered_id['index']
     selection_trans = TRANS_DB.specific_month.get_data_by_cat(selection)
-    selection_trans = selection_trans[TransDBSchema.get_cols_for_trans_drawer()]
+    selection_trans = _format_table_for_drawer(selection_trans)
     table_parts = create_table(selection_trans)
     table = dmc.Table(table_parts, striped=True, highlightOnHover=True)
-
     return True, table
+
+
+def _format_table_for_drawer(selection_trans: pd.DataFrame):
+    selection_trans = format_date_col_for_display(selection_trans,
+                                                  TransDBSchema.DATE)
+    selection_trans[TransDBSchema.INFLOW] = selection_trans[TransDBSchema.INFLOW].astype(int)
+    selection_trans[TransDBSchema.OUTFLOW] = selection_trans[TransDBSchema.OUTFLOW].astype(int)
+    selection_trans[TransDBSchema.OUTFLOW] = selection_trans[TransDBSchema.OUTFLOW].astype(str) + f' {SHEKEL_SYM}'
+    selection_trans[TransDBSchema.INFLOW] = selection_trans[TransDBSchema.INFLOW].astype(str) + f' {SHEKEL_SYM}'
+    selection_trans = selection_trans[TransDBSchema.get_cols_for_trans_drawer()]
+
+    return selection_trans

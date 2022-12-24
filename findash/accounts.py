@@ -1,4 +1,6 @@
 from abc import abstractmethod, ABC
+
+import numpy as np
 import yaml
 from enum import Enum
 from typing import Dict
@@ -6,7 +8,7 @@ from typing import Dict
 import pandas as pd
 
 from transactions_db import TransDBSchema
-from utils import SETTINGS
+from utils import SETTINGS, MappingDict
 
 ACCOUNTS = {}
 
@@ -29,11 +31,18 @@ class ColMapping:
 
     @staticmethod
     def _validate_mapping(col_mapping: Dict[str, str]):
-        mandatory_cols = TransDBSchema.get_mandatory_cols()
-        col_inter = set(col_mapping.values()).intersection(set(mandatory_cols))
-        col_diff = col_inter.symmetric_difference(set(mandatory_cols))
-        if len(col_diff) != 0:
-            raise ValueError(f'Missing mandatory cols ({col_diff}) in transaction file')
+        """
+        make sure the mapping includes all mandatory columns
+        :param col_mapping:
+        :return:
+        """
+        for option in TransDBSchema.get_mandatory_col_sets():
+            col_inter = set(col_mapping.values()).intersection(set(option))
+            col_diff = col_inter.symmetric_difference(set(option))
+            if len(col_diff) == 0:
+                return
+
+        raise ValueError(f'Missing mandatory cols in transaction file')
 
     @property
     def col_mapping(self):
@@ -50,6 +59,12 @@ class Account(ABC):
 
     @abstractmethod
     def process_trans_file(self, trans_file: pd.DataFrame) -> pd.DataFrame:
+        """
+        The purpose of this processing is to format the file such that it has
+        the mandatory columns and removes unnecessary rows.
+        :param trans_file:
+        :return:
+        """
         pass
 
     @property
@@ -68,7 +83,28 @@ class Account(ABC):
 
 class FIBI(Account):
     def process_trans_file(self, trans_file: pd.DataFrame) -> pd.DataFrame:
-        pass
+        trans_file.columns = trans_file.iloc[1, :]
+        first_trans_row_ind = self._find_first_date_row_ind(trans_file)
+        trans_file = trans_file.drop(trans_file.index[:first_trans_row_ind])
+        trans_file = _apply_col_mapping(trans_file, self._get_col_mapping())
+        trans_file[TransDBSchema.INFLOW] = \
+            trans_file[TransDBSchema.INFLOW].map(MappingDict({' ': '0'}))
+        trans_file[TransDBSchema.OUTFLOW] = \
+            trans_file[TransDBSchema.OUTFLOW].map(MappingDict({' ': '0'}))
+        trans_file[TransDBSchema.AMOUNT] = np.where(trans_file[TransDBSchema.OUTFLOW] != '0',
+                                                    trans_file[TransDBSchema.OUTFLOW],
+                                                    trans_file[TransDBSchema.INFLOW] * self.inflow_sign.value)
+        return trans_file
+
+    @staticmethod
+    def _find_first_date_row_ind(trans_file: pd.DataFrame) -> int:
+        for row_ind, row in trans_file.iloc[:, -1].items():
+            try:
+                res = pd.to_datetime(row)
+                if pd.notna(res):
+                    return row_ind
+            except ValueError:
+                pass
 
     def __init__(self, name: str):
         self.is_checking = True
@@ -77,10 +113,11 @@ class FIBI(Account):
 
     def _get_col_mapping(self) -> ColMapping:
         col_mapping = {
-            'תאריך': 'date',
-            'תיאור': 'payee',
-            'זכות': 'inflow',
-            'חובה': 'outflow'
+            'תאריך': TransDBSchema.DATE,
+            'תיאור': TransDBSchema.PAYEE,
+            'זכות': TransDBSchema.INFLOW,
+            'חובה': TransDBSchema.OUTFLOW,
+            'תאור': TransDBSchema.PAYEE,
         }
 
         return ColMapping(col_mapping)
@@ -101,10 +138,10 @@ class CAL(Account):
 
     def _get_col_mapping(self) -> ColMapping:
         col_mapping = {
-            "תאריך העסקה": 'date',
-            "סכום החיוב": 'amount',
-            "שם בית העסק": 'payee',
-            "פירוט נוסף": 'memo',
+            "תאריך העסקה": TransDBSchema.DATE,
+            "סכום החיוב": TransDBSchema.AMOUNT,
+            "שם בית העסק": TransDBSchema.PAYEE,
+            "פירוט נוסף": TransDBSchema.MEMO,
         }
 
         return ColMapping(col_mapping)
@@ -113,23 +150,9 @@ class CAL(Account):
         trans_file.columns = trans_file.iloc[1, :]  # set columns names
         trans_file = trans_file.drop(trans_file.index[:2])  # remove the first 2 rows which are headers
         trans_file = trans_file.drop(trans_file.index[-1])  # remove the last row which is a summary
-        trans_file = self._apply_col_mapping(trans_file)
+        trans_file = _apply_col_mapping(trans_file, self._get_col_mapping())
         return trans_file
 
-    def _apply_col_mapping(self, trans_file: pd.DataFrame):
-        """
-        change column names according to mapping from account object
-        :param trans_file:
-        :return:
-        """
-        for source_col, dest_col in self._get_col_mapping().col_mapping.items():
-            if source_col in trans_file.columns:
-                trans_file = trans_file.rename(columns={source_col: dest_col})
-            # else:
-            #     logger.warning(
-            #         f'col {source_col} not found in transactions file')
-
-        return trans_file
 
     @property
     def inflow_sign(self) -> InflowSign:
@@ -155,6 +178,23 @@ class OZ(Account):
     @property
     def inflow_sign(self) -> InflowSign:
         pass  # todo
+
+
+def _apply_col_mapping(trans_file: pd.DataFrame,
+                       col_mapping: ColMapping) -> pd.DataFrame:
+    """
+    change column names according to mapping from account object
+    :param trans_file:
+    :return:
+    """
+    for source_col, dest_col in col_mapping.col_mapping.items():
+        if source_col in trans_file.columns:
+            trans_file = trans_file.rename(columns={source_col: dest_col})
+        # else:
+        #     logger.warning(
+        #         f'col {source_col} not found in transactions file')
+
+    return trans_file
 
 
 def init_accounts():

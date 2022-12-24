@@ -71,6 +71,9 @@ def _fit_to_db_scheme(trans_file: pd.DataFrame, account_name: str) \
         if col_name not in trans_file.columns:
             trans_file[col_name] = default_val
 
+    # remove nan named cols
+    trans_file = trans_file.loc[:, trans_file.columns.notna()]
+
     for col in trans_file.columns:
         if col not in TransDBSchema.get_db_col_vals():
             trans_file = trans_file.drop(columns=col)
@@ -87,6 +90,11 @@ def _populate_inflow_outflow(trans_file: pd.DataFrame,
     :param trans_file: dataframe to populate
     :return: dataframe with inflow and outflow populated
     """
+    # if inflow\outflow in file, skip this
+    if TransDBSchema.OUTFLOW in trans_file.columns and \
+        TransDBSchema.INFLOW in trans_file.columns:
+        return trans_file
+
     # convert amount col into inflow and outflow
     cond = trans_file[TransDBSchema.AMOUNT] < 0 if account_inflow_sign == InflowSign.MINUS else \
         trans_file[TransDBSchema.AMOUNT] > 0
@@ -108,7 +116,7 @@ def _load_file(file: Union[str, StringIO, BytesIO]) -> pd.DataFrame:
     elif isinstance(file, StringIO):
         return pd.read_csv(file)
     elif isinstance(file, BytesIO):
-        return pd.read_excel(file)
+        return pd.read_excel(file, header=None, index_col=None)
     else:
         raise ValueError('file must be str, StringIO or BytesIO')
 
