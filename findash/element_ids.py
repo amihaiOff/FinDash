@@ -13,6 +13,8 @@ class TransIDs:
     FILE_UPLOADER_DROPDOWN = 'file_uploader_dropdown'
     INSERT_FILE_SUMMARY_STORE = 'insert_file_summary_store'
     INSERT_FILE_MODAL = 'insert_file_modal'
+    SPLIT_BTN = 'split_btn'
+    SPLIT_MODAL = 'split_modal'
 
 
 class MonthlyIDs:

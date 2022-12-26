@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional, Tuple, Any
+from typing import List, Optional, Tuple, Any, Union
 import base64
 import io
 
@@ -104,6 +104,41 @@ def _create_category_change_modal() -> dmc.Modal:
     )
 
 
+def _create_split_trans_modal():
+    return dmc.Modal(
+        title='Split Transaction',
+        id=TransIDs.SPLIT_MODAL,
+        children=[dbc.Row([
+            dbc.Col([html.Div(_create_trans_table(row_selectable='single'),
+                     style={'overflowY': 'auto'})]),
+            dbc.Col([dbc.Row([
+                dmc.Card(
+                    dmc.CardSection([
+                        dmc.Text('Split 1'),
+                    ]),
+                    dmc.CardSection([
+                        dbc.Col([dmc.TextInput(id='split_amount',
+                                      placeholder='Amount',
+                                      type='number',
+                                      label='Split amount',
+                                      description='Must be smaller than the original amount',
+                                      error='Must smaller than amount left to split')]),
+                        dbc.Col([dmc.TextInput(id='split_memo',
+                                      placeholder='Memo',
+                                      label='Add memo',
+                                      description='Optional')])
+                ])
+                    ])
+                dmc.Space(h=8),
+            ])
+            ])
+        ])
+        ],
+        style={'height': '80%',
+               'width': '50%'}
+    )
+
+
 def _create_file_uploader():
     uploader = dcc.Upload(
         id='file_uploader',
@@ -145,9 +180,27 @@ def setup_table_cell_dropdowns():
     return dropdown_options
 
 
-def _create_trans_table() -> dash_table.DataTable:
+def _create_add_row_split_buttons() -> Tuple[dbc.Col, dbc.Col]:
+    """
+    Creates the add row and split transaction buttons
+    :return:
+    """
+    add_row_btn = dbc.Col([dbc.Button('Add row',
+                                      id=TransIDs.ADD_ROW_BTN,
+                                      n_clicks=0,
+                                      style=({'font-size': '14px'}))])
+    split_btn = dbc.Col([dbc.Button('Split',
+                                    id=TransIDs.SPLIT_BTN,
+                                    style=({'font-size': '14px'}))])
+
+    return add_row_btn, split_btn
+
+
+def _create_trans_table(row_selectable: Union[str, bool] = False) -> dash_table.DataTable:
     """
     Creates the transaction table
+    :param row_selectable: Whether the table rows are selectable,
+                           Options: 'single', 'multi', False
     :return:
     """
     trans_db_formatted = format_date_col_for_display(TRANS_DB,
@@ -155,8 +208,10 @@ def _create_trans_table() -> dash_table.DataTable:
     return dash_table.DataTable(data=trans_db_formatted.to_dict('records'),
                                 id=TransIDs.TRANS_TBL,
                                 editable=True,
+                                filter_action='native',
                                 export_format='xlsx',
                                 export_headers='display',
+                                row_selectable=row_selectable,
                                 sort_by=[{'column_id': TransDBSchema.DATE,
                                           'direction': 'desc'}],
                                 page_size=50,
@@ -198,6 +253,7 @@ def _create_trans_table() -> dash_table.DataTable:
 
 trans_table = _create_trans_table()
 cat_change_modal = _create_category_change_modal()
+split_trans_modal = _create_split_trans_modal()
 upload_file_section = _create_file_uploader()
 # insert_file_modal = _create_insert_file_modal()
 
@@ -238,37 +294,31 @@ date_picker = dbc.Card([
 
 def _create_layout():
     return dbc.Container([
-    dbc.Row([
-        dbc.Col([
-            category_picker,
-            html.Br(),
-            group_picker,
-            html.Br(),
-            account_picker,
-            html.Br(),
-            date_picker,
-            html.Br(),
-            dmc.Divider(variant='dashed', size='lg'),
-            dmc.Space(h=20),
-            dbc.Row([
-                dbc.Col([dbc.Button('Add row',
-                                    id=TransIDs.ADD_ROW_BTN,
-                                    n_clicks=0,
-                                    style=({'font-size': '14px'}))]),
-                dbc.Col([dbc.Button('Split',
-                                    style=({'font-size': '14px'}))])
-            ]),
-            dmc.Space(h=20),
-            upload_file_section,
-            cat_change_modal,
-            # insert_file_modal
-        ], width=2),
-        dbc.Col(children=[_create_trans_table(),
-                          html.Div(id=TransIDs.PLACEDHOLDER,
-                                   style={'display': 'none'})],
-                width=10),
-        dcc.Store(id=TransIDs.INSERT_FILE_SUMMARY_STORE)
-    ])
+        cat_change_modal,
+        split_trans_modal,
+        dbc.Row([
+            dbc.Col([
+                category_picker,
+                html.Br(),
+                group_picker,
+                html.Br(),
+                account_picker,
+                html.Br(),
+                date_picker,
+                html.Br(),
+                dmc.Divider(variant='dashed', size='lg'),
+                dmc.Space(h=20),
+                dbc.Row(_create_add_row_split_buttons()),
+                dmc.Space(h=20),
+                upload_file_section,
+                # insert_file_modal
+            ], width=2),
+            dbc.Col(children=[_create_trans_table(),
+                              html.Div(id=TransIDs.PLACEDHOLDER,
+                                       style={'display': 'none'})],
+                    width=10),
+            dcc.Store(id=TransIDs.INSERT_FILE_SUMMARY_STORE)
+        ])
 ])
 
 
@@ -375,6 +425,16 @@ def _cat_change_modal_callback_trigger(data: List[dict],
             raise ValueError("Invalid triggered id in cat change modal")
         _apply_changes_to_trans_db_cat_col(change, all_trans,
                                            col=change['column_name'])
+
+
+@dash.callback(
+    Output(TransIDs.SPLIT_MODAL, 'opened'),
+    Input(TransIDs.SPLIT_BTN, 'n_clicks'),
+    State(TransIDs.SPLIT_MODAL, 'opened'),
+    config_prevent_initial_callbacks=True
+)
+def _split_trans_model_callback(n_clicks, opened):
+    return not opened
 
 
 @dash.callback(
