@@ -25,14 +25,17 @@ END_DATE_DEFAULT = '2100-01-01'
 dash.register_page(__name__)
 
 
-def setup_table_cols():
+def setup_table_cols(cols_subset: Optional[List[str]] = None) -> List[dict]:
     col_order = [TransDBSchema.DATE, TransDBSchema.PAYEE, TransDBSchema.INFLOW,
                  TransDBSchema.OUTFLOW, TransDBSchema.CAT, TransDBSchema.MEMO,
                  TransDBSchema.ACCOUNT]
     col_dtypes = TransDBSchema.get_displayed_cols_by_type()
-    trans_df_cols = [None] * len(col_order)
+    trans_df_cols = [None] * min(len(col_order), len(cols_subset))  # todo fails when cols_subset is None
     for col_type, cols in col_dtypes.items():
         for col in cols:
+            if cols_subset is not None and col not in cols_subset:
+                continue  # we want a subset of the columns
+
             col_def = {'name': TransDBSchema.col_display_name_mapping()[col],
                        'id': col,
                        'renamable': False,
@@ -104,38 +107,54 @@ def _create_category_change_modal() -> dmc.Modal:
     )
 
 
+def _create_split_input() -> dmc.Group:
+    return dmc.Group([
+        dmc.Grid([
+            dmc.Col([dmc.TextInput(id='split_amount',
+                                    placeholder='Amount',
+                                    type='number',
+                                    label='Split amount',
+                                    description='Must be smaller than the original amount',
+                                    error='Must smaller than amount left to split')],
+                    span=4),
+            dmc.Col([dmc.TextInput(id='split_memo',
+                                   placeholder='Memo',
+                                   label='Add memo',
+                                   description='Optional')],
+                    span=4)
+               ])
+        ])
+
+
 def _create_split_trans_modal():
+    table = _create_trans_table(row_selectable='single',
+                                rows_deletable=False,
+                                subset_cols=[TransDBSchema.DATE,
+                                             TransDBSchema.PAYEE,
+                                             TransDBSchema.MEMO],
+                                export_format=None,
+                                editable=False)
     return dmc.Modal(
         title='Split Transaction',
         id=TransIDs.SPLIT_MODAL,
-        children=[dbc.Row([
-            dbc.Col([html.Div(_create_trans_table(row_selectable='single'),
-                     style={'overflowY': 'auto'})]),
-            dbc.Col([dbc.Row([
-                dmc.Card(
-                    dmc.CardSection([
-                        dmc.Text('Split 1'),
-                    ]),
-                    dmc.CardSection([
-                        dbc.Col([dmc.TextInput(id='split_amount',
-                                      placeholder='Amount',
-                                      type='number',
-                                      label='Split amount',
-                                      description='Must be smaller than the original amount',
-                                      error='Must smaller than amount left to split')]),
-                        dbc.Col([dmc.TextInput(id='split_memo',
-                                      placeholder='Memo',
-                                      label='Add memo',
-                                      description='Optional')])
-                ])
-                    ])
-                dmc.Space(h=8),
+        children=[
+            dmc.Grid([
+                dmc.Col([table],
+                        style={'overflowY': 'auto'},
+                        span=5),
+                dmc.Col([
+                    dmc.Card([
+                        dmc.CardSection([
+                            dmc.Text('Split 1')],
+                            withBorder=True),
+                        _create_split_input()],
+                    withBorder=True)
+                ],
+                    span=6),
             ])
-            ])
-        ])
         ],
-        style={'height': '80%',
-               'width': '50%'}
+        size='90%',
+        overflow='inside'
     )
 
 
@@ -196,7 +215,11 @@ def _create_add_row_split_buttons() -> Tuple[dbc.Col, dbc.Col]:
     return add_row_btn, split_btn
 
 
-def _create_trans_table(row_selectable: Union[str, bool] = False) -> dash_table.DataTable:
+def _create_trans_table(row_selectable: Union[str, bool] = False,
+                        rows_deletable: bool = True,
+                        subset_cols: Optional[List[str]] = None,
+                        export_format: str = 'xlsx',
+                        editable: bool = True) -> dash_table.DataTable:
     """
     Creates the transaction table
     :param row_selectable: Whether the table rows are selectable,
@@ -205,20 +228,26 @@ def _create_trans_table(row_selectable: Union[str, bool] = False) -> dash_table.
     """
     trans_db_formatted = format_date_col_for_display(TRANS_DB,
                                                      TransDBSchema.DATE)
+    col_defs = setup_table_cols()
+
+    if subset_cols is not None:
+        trans_db_formatted = trans_db_formatted[subset_cols]
+        col_defs = setup_table_cols(subset_cols)
+
     return dash_table.DataTable(data=trans_db_formatted.to_dict('records'),
                                 id=TransIDs.TRANS_TBL,
-                                editable=True,
+                                editable=editable,
                                 filter_action='native',
-                                export_format='xlsx',
+                                export_format=export_format,
                                 export_headers='display',
                                 row_selectable=row_selectable,
                                 sort_by=[{'column_id': TransDBSchema.DATE,
                                           'direction': 'desc'}],
                                 page_size=50,
-                                row_deletable=True,
+                                row_deletable=rows_deletable,
                                 fill_width=False,
                                 style_table={'overflowX': 'auto'},
-                                columns=setup_table_cols(),
+                                columns=col_defs,
                                 dropdown=setup_table_cell_dropdowns(),
                                 style_data_conditional=[
                                     {'if': {'row_index': 'odd'},
