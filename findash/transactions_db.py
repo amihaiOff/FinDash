@@ -1,5 +1,4 @@
 from dataclasses import dataclass, fields
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Optional, Union
 
@@ -7,7 +6,7 @@ import pandas as pd
 
 from categories_db import CategoriesDB
 from utils import SETTINGS, create_uuid, format_date_col_for_display, \
-    set_cat_col_categories, check_null
+    set_cat_col_categories, check_null, get_current_year_and_month
 
 """
 The purpose of this module is to provide a database for transactions.
@@ -24,7 +23,7 @@ class TransDBSchema:
     CAT: str = 'cat'
     CAT_GROUP: str = 'cat_group'
     MEMO: str = 'memo'
-    ACCOUNT: pd.CategoricalDtype = 'account'
+    ACCOUNT: str = 'account'
     INFLOW: float = 'inflow'  # if forex trans will show the conversion to ils here
     OUTFLOW: float = 'outflow'  # if forex trans will show the conversion to ils here
     RECONCILED: bool = 'reconciled'
@@ -39,6 +38,7 @@ class TransDBSchema:
             cls.CAT_GROUP: 'Group',
             cls.MEMO: 'Memo',
             cls.ACCOUNT: 'Account',
+            cls.AMOUNT: 'Amount',
             cls.INFLOW: 'Inflow',
             cls.OUTFLOW: 'Outflow',
         }
@@ -50,6 +50,12 @@ class TransDBSchema:
         option1 = [cls.DATE, cls.PAYEE, cls.AMOUNT]
         option2 = [cls.DATE, cls.PAYEE, cls.INFLOW, cls.OUTFLOW]
         return option1, option2
+
+    @classmethod
+    def get_col_order_for_table(cls):
+        return [TransDBSchema.DATE, TransDBSchema.PAYEE, TransDBSchema.AMOUNT,
+                TransDBSchema.INFLOW, TransDBSchema.OUTFLOW, TransDBSchema.CAT,
+                TransDBSchema.MEMO, TransDBSchema.ACCOUNT]
 
     @classmethod
     def get_cols_for_trans_drawer(cls) -> List[str]:
@@ -90,7 +96,7 @@ class TransDBSchema:
         return {
             'date': [cls.DATE],
             'str': [cls.PAYEE, cls.MEMO],
-            'numeric': [cls.INFLOW, cls.OUTFLOW],
+            'numeric': [cls.AMOUNT, cls.INFLOW, cls.OUTFLOW],
             'cat': [cls.CAT, cls.ACCOUNT],
             # 'readonly': [cls.CAT_GROUP]
         }
@@ -175,8 +181,7 @@ class TransactionsDBParquet:
         self._sort_by_date()
 
         # set monthly_trans
-        self.set_specific_month(str(datetime.now().year),
-                                str(datetime.now().month))
+        self.set_specific_month(*get_current_year_and_month())
 
     @staticmethod
     def _get_category_vals(df) -> Dict[str, pd.CategoricalDtype]:

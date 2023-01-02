@@ -26,11 +26,17 @@ dash.register_page(__name__)
 
 
 def setup_table_cols(cols_subset: Optional[List[str]] = None) -> List[dict]:
-    col_order = [TransDBSchema.DATE, TransDBSchema.PAYEE, TransDBSchema.INFLOW,
-                 TransDBSchema.OUTFLOW, TransDBSchema.CAT, TransDBSchema.MEMO,
-                 TransDBSchema.ACCOUNT]
+    def setup_col_order():
+        col_order = TransDBSchema.get_col_order_for_table()
+        num_cols = len(cols_subset) if cols_subset else len(col_order)
+        trans_df_cols = [None] * num_cols
+        if cols_subset is not None:
+            col_order = [col for col in col_order if col in cols_subset]
+
+        return col_order, trans_df_cols
+
+    col_order, trans_df_cols = setup_col_order()
     col_dtypes = TransDBSchema.get_displayed_cols_by_type()
-    trans_df_cols = [None] * min(len(col_order), len(cols_subset))  # todo fails when cols_subset is None
     for col_type, cols in col_dtypes.items():
         for col in cols:
             if cols_subset is not None and col not in cols_subset:
@@ -131,7 +137,7 @@ def _create_split_trans_modal():
                                 rows_deletable=False,
                                 subset_cols=[TransDBSchema.DATE,
                                              TransDBSchema.PAYEE,
-                                             TransDBSchema.MEMO],
+                                             TransDBSchema.AMOUNT],
                                 export_format=None,
                                 editable=False)
     return dmc.Modal(
@@ -215,7 +221,7 @@ def _create_add_row_split_buttons() -> Tuple[dbc.Col, dbc.Col]:
     return add_row_btn, split_btn
 
 
-def _create_trans_table(row_selectable: Union[str, bool] = False,
+def _create_trans_table(row_selectable: Union[str, bool, float] = False,
                         rows_deletable: bool = True,
                         subset_cols: Optional[List[str]] = None,
                         export_format: str = 'xlsx',
@@ -228,11 +234,17 @@ def _create_trans_table(row_selectable: Union[str, bool] = False,
     """
     trans_db_formatted = format_date_col_for_display(TRANS_DB,
                                                      TransDBSchema.DATE)
-    col_defs = setup_table_cols()
+    col_defs = setup_table_cols(subset_cols)
 
     if subset_cols is not None:
         trans_db_formatted = trans_db_formatted[subset_cols]
         col_defs = setup_table_cols(subset_cols)
+
+    tooltip_data = None
+    if subset_cols is None or TransDBSchema.MEMO in subset_cols:
+        tooltip_data = [{column: {'value': str(value), 'type': 'markdown'}
+                           for column, value in row.items()} for row in
+                        trans_db_formatted[TransDBSchema.MEMO].to_frame().to_dict('records')]
 
     return dash_table.DataTable(data=trans_db_formatted.to_dict('records'),
                                 id=TransIDs.TRANS_TBL,
@@ -259,13 +271,7 @@ def _create_trans_table(row_selectable: Union[str, bool] = False,
                                     {'if': {'column_id': TransDBSchema.DATE},
                                         'color': 'gray'},
                                 ],
-                                tooltip_data=[
-                                       {
-                                           column: {'value': str(value), 'type': 'markdown'}
-                                           for column, value in row.items()
-                                       } for row in trans_db_formatted['memo'].to_frame().to_dict('records')
-
-                                   ],
+                                tooltip_data=tooltip_data,
                                 tooltip_duration=20000,
                                 style_data={
                                     'border': 'none',
@@ -280,7 +286,18 @@ def _create_trans_table(row_selectable: Union[str, bool] = False,
                                 )
 
 
-trans_table = _create_trans_table()
+def _create_main_trans_table() -> dash_table.DataTable:
+    """
+    Creates the main transaction table
+    :return:
+    """
+    col_subset = [TransDBSchema.DATE, TransDBSchema.PAYEE, TransDBSchema.INFLOW,
+                 TransDBSchema.OUTFLOW, TransDBSchema.CAT, TransDBSchema.MEMO,
+                 TransDBSchema.ACCOUNT]
+    return _create_trans_table(subset_cols=col_subset)
+
+
+trans_table = _create_main_trans_table()
 cat_change_modal = _create_category_change_modal()
 split_trans_modal = _create_split_trans_modal()
 upload_file_section = _create_file_uploader()
@@ -325,6 +342,8 @@ def _create_layout():
     return dbc.Container([
         cat_change_modal,
         split_trans_modal,
+        html.Div(id=TransIDs.PLACEDHOLDER,
+                 style={'display': 'none'}),
         dbc.Row([
             dbc.Col([
                 category_picker,
@@ -342,10 +361,7 @@ def _create_layout():
                 upload_file_section,
                 # insert_file_modal
             ], width=2),
-            dbc.Col(children=[_create_trans_table(),
-                              html.Div(id=TransIDs.PLACEDHOLDER,
-                                       style={'display': 'none'})],
-                    width=10),
+            dbc.Col([trans_table], width=10),
             dcc.Store(id=TransIDs.INSERT_FILE_SUMMARY_STORE)
         ])
 ])

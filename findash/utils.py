@@ -30,8 +30,28 @@ def create_uuid():
     return uuid.uuid4().hex
 
 
+def get_current_year():
+    return str(datetime.datetime.now().year)
+
+
+def get_current_month():
+    """
+    get current month in 2 digits format
+    """
+    month = str(datetime.datetime.now().month)
+    if len(month) == 1:
+        month = '0' + month
+    return month
+
+
 def get_current_year_month():
-    return f'{datetime.datetime.now().year}-{datetime.datetime.now().month}'
+    """ get current year and month in one str (YYYY-MM) """
+    return f'{get_current_year()}-{get_current_month()}'
+
+
+def get_current_year_and_month():
+    """ get current year and month in a tuple (YYYY, MM) """
+    return get_current_year(), get_current_month()
 
 
 def conditional_coloring(value: float,
@@ -42,7 +62,7 @@ def conditional_coloring(value: float,
     :param value:
     :param threshold_colors: dict with colors as keys and tuples of (min, max)
                              as values
-    :return:
+    :return
     """
     for color, (lower, upper) in threshold_colors.items():
         if lower <= value < upper:
