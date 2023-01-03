@@ -123,27 +123,29 @@ def _create_split_input(split_num) -> dmc.Group:
                        position='top'
     )
     return dmc.Group([
-        html.Div([
+        # html.Div([
             dmc.TextInput(id=f'{TransIDs.SPLIT_AMOUNT}-{split_num}',
                                    placeholder='Amount',
                                    type='number',
                                    label=dmc.Group(['Split amount', icon],
-                                                   spacing=5)),
+                                                   spacing=5),
+                          style={'width': '20%'}),
             dmc.TextInput(id=f'{TransIDs.SPLIT_MEMO}-{split_num}',
                                    placeholder='Memo',
-                                   label='Add memo'),
+                                   label='Add memo',
+                          style={'width': '40%'}),
             html.Div(dmc.Select(
                 id=f'{TransIDs.SPLIT_CAT}-{split_num}',
                 label='Category',
                 searchable=True,
                 nothingFound="No options found",
-                style={'overflow': 'visible'},
                 data=_get_group_and_cat_for_dropdown()),
-                )
-               ],
-            style={'display': 'inline-block', 'width': '100%',
-                   'overflow': 'visible'})],
-        align='flex-end', style={'overflow': 'auto'})
+                style={'width': '30%'}),
+               # ],
+            # style={'display': 'inline-block', 'width': '100%'}
+        # )
+    ],
+        align='flex-end')
 
 
 def create_split_input_card(split_num: int):
@@ -154,15 +156,18 @@ def create_split_input_card(split_num: int):
             py='xs',
             withBorder=True),
         _create_split_input(split_num)],
-    withBorder=True,
-    shadow="sm",
-    radius="md",
+        withBorder=True,
+        style={'z-index': 999, 'overflow': 'visible'},
+        shadow="sm",
+        radius="md",
     )
 
 
 def _create_split_trans_modal():
-    table = _create_trans_table(row_selectable='single',
+    table = _create_trans_table(id=TransIDs.SPLIT_TBL,
+                                row_selectable='single',
                                 rows_deletable=False,
+                                filter_action='native',
                                 subset_cols=[TransDBSchema.DATE,
                                              TransDBSchema.PAYEE,
                                              TransDBSchema.AMOUNT],
@@ -267,8 +272,10 @@ def _create_add_row_split_buttons() -> Tuple[dbc.Col, dbc.Col]:
     return add_row_btn, split_btn
 
 
-def _create_trans_table(row_selectable: Union[str, bool, float] = False,
+def _create_trans_table(id: str = TransIDs.TRANS_TBL,
+                        row_selectable: Union[str, bool, float] = False,
                         rows_deletable: bool = True,
+                        filter_action: str = 'none',
                         subset_cols: Optional[List[str]] = None,
                         export_format: str = 'xlsx',
                         editable: bool = True) -> dash_table.DataTable:
@@ -293,9 +300,9 @@ def _create_trans_table(row_selectable: Union[str, bool, float] = False,
                         trans_db_formatted[TransDBSchema.MEMO].to_frame().to_dict('records')]
 
     return dash_table.DataTable(data=trans_db_formatted.to_dict('records'),
-                                id=TransIDs.TRANS_TBL,
+                                id=id,
                                 editable=editable,
-                                filter_action='native',
+                                filter_action=filter_action,
                                 export_format=export_format,
                                 export_headers='display',
                                 row_selectable=row_selectable,
@@ -521,10 +528,11 @@ def _cat_change_modal_callback_trigger(data: List[dict],
 @dash.callback(
     Output(TransIDs.SPLIT_MODAL, 'opened'),
     Input(TransIDs.SPLIT_BTN, 'n_clicks'),
+    Input(TransIDs.SPLIT_MODAL_CLOSE_BTN, 'n_clicks'),
     State(TransIDs.SPLIT_MODAL, 'opened'),
     config_prevent_initial_callbacks=True
 )
-def _open_split_trans_modal_callback(n_clicks, opened):
+def _open_split_trans_modal_callback(n_clicks_add_split, n_clicks_close, opened):
     return not opened
 
 
@@ -544,11 +552,18 @@ def add_split(n_clicks, children):
     return children
 
 
-# @dash.callback(
-#     Output()
-# )
-def apply_splits_callback():
-    pass
+@dash.callback(
+    Output(TransIDs.PLACEDHOLDER, 'children'),
+    Input(TransIDs.APPLY_SPLIT_BTN, 'n_clicks'),
+    State(TransIDs.SPLIT_TBL, 'derived_virtual_selected_rows'),
+    State(TransIDs.SPLIT_TBL, 'derived_virtual_data'),
+    State(TransIDs.SPLITS_COL, 'children'),
+    config_prevent_initial_callbacks=True
+)
+def apply_splits_callback(n_clicks, selected_rows, data, children):
+    print(selected_rows)
+    print(children)
+
 
 @dash.callback(
     Output(TransIDs.TRANS_TBL, 'data'),

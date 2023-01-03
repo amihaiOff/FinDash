@@ -22,6 +22,7 @@ class TransIDs:
     SPLIT_MEMO = 'split_memo'
     APPLY_SPLIT_BTN = 'apply_split_btn'
     SPLIT_MODAL_CLOSE_BTN = 'split_modal_close_btn'
+    SPLIT_TBL = 'split_tbl'
 
 class MonthlyIDs:
     ## Cards
