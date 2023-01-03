@@ -6,7 +6,7 @@ import io
 import dash
 import dash_mantine_components as dmc
 import pandas as pd
-from dash import State, html, dash_table, dcc, Input, Output, ctx
+from dash import State, html, dash_table, dcc, Input, Output, ctx, ALL
 import dash_bootstrap_components as dbc
 from dash.dash_table.Format import Format, Symbol
 from dash.exceptions import PreventUpdate
@@ -123,32 +123,31 @@ def _create_split_input(split_num) -> dmc.Group:
                        position='top'
     )
     return dmc.Group([
-        # html.Div([
-            dmc.TextInput(id=f'{TransIDs.SPLIT_AMOUNT}-{split_num}',
-                                   placeholder='Amount',
-                                   type='number',
-                                   label=dmc.Group(['Split amount', icon],
-                                                   spacing=5),
+            dmc.TextInput(id={'type': 'split_amount',
+                              'index': f'{TransIDs.SPLIT_AMOUNT}-{split_num}'},
+                          placeholder='Amount',
+                          type='number',
+                          label=dmc.Group(['Split amount', icon],
+                                          spacing=5),
                           style={'width': '20%'}),
-            dmc.TextInput(id=f'{TransIDs.SPLIT_MEMO}-{split_num}',
-                                   placeholder='Memo',
-                                   label='Add memo',
+            dmc.TextInput(id={'type': 'split_memo',
+                              'index': f'{TransIDs.SPLIT_MEMO}-{split_num}'},
+                          placeholder='Memo',
+                          label='Add memo',
                           style={'width': '40%'}),
-            html.Div(dmc.Select(
-                id=f'{TransIDs.SPLIT_CAT}-{split_num}',
+            dmc.Select(
+                id={'type': 'split_cat',
+                    'index': f'{TransIDs.SPLIT_CAT}-{split_num}'},
                 label='Category',
                 searchable=True,
                 nothingFound="No options found",
-                data=_get_group_and_cat_for_dropdown()),
-                style={'width': '30%'}),
-               # ],
-            # style={'display': 'inline-block', 'width': '100%'}
-        # )
+                data=_get_group_and_cat_for_dropdown(),
+                style={'width': '30%'})
     ],
         align='flex-end')
 
 
-def create_split_input_card(split_num: int):
+def _create_split_input_card(split_num: int):
     return dmc.Card([
         dmc.CardSection([
             dmc.Text(f'Split {split_num}', weight=500)],
@@ -199,7 +198,7 @@ def _create_split_trans_modal():
                         style={'overflowY': 'auto'},
                         span=5),
                 dmc.Col([
-                    create_split_input_card(1)
+                    _create_split_input_card(1)
                 ],
                     id=TransIDs.SPLITS_COL,
                     span=6),
@@ -241,7 +240,8 @@ def _get_group_and_cat_for_dropdown():
              group[CatDBSchema.CAT_NAME]])
     return options
 
-def setup_table_cell_dropdowns():
+
+def _setup_table_cell_dropdowns():
     account_names = [acc_name for acc_name, _ in ACCOUNTS.items()]
 
     dropdown_options = {
@@ -313,7 +313,7 @@ def _create_trans_table(id: str = TransIDs.TRANS_TBL,
                                 fill_width=False,
                                 style_table={'overflowX': 'auto'},
                                 columns=col_defs,
-                                dropdown=setup_table_cell_dropdowns(),
+                                dropdown=_setup_table_cell_dropdowns(),
                                 style_data_conditional=[
                                     {'if': {'row_index': 'odd'},
                                         'backgroundColor': 'rgb(240, 246, 255)'},
@@ -542,11 +542,11 @@ def _open_split_trans_modal_callback(n_clicks_add_split, n_clicks_close, opened)
     State(TransIDs.SPLITS_COL, 'children'),
     config_prevent_initial_callbacks=True
 )
-def add_split(n_clicks, children):
+def _add_split(n_clicks, children):
     if len(children) == 9:
         raise PreventUpdate
 
-    new_split = create_split_input_card(n_clicks + 1)
+    new_split = _create_split_input_card(n_clicks + 1)
     children.append(dmc.Space(h=20))
     children.append(new_split)
     return children
@@ -557,12 +557,20 @@ def add_split(n_clicks, children):
     Input(TransIDs.APPLY_SPLIT_BTN, 'n_clicks'),
     State(TransIDs.SPLIT_TBL, 'derived_virtual_selected_rows'),
     State(TransIDs.SPLIT_TBL, 'derived_virtual_data'),
-    State(TransIDs.SPLITS_COL, 'children'),
+    State({'type': 'split_amount', 'index': ALL}, 'value'),
+    State({'type': 'split_memo', 'index': ALL}, 'value'),
+    State({'type': 'split_cat', 'index': ALL}, 'value'),
     config_prevent_initial_callbacks=True
 )
-def apply_splits_callback(n_clicks, selected_rows, data, children):
-    print(selected_rows)
-    print(children)
+def _apply_splits_callback(n_clicks,
+                           selected_rows,
+                           data,
+                           split_amounts,
+                           split_memos,
+                           split_cats):
+    print(split_amounts)
+    print(split_memos)
+    print(split_cats)
 
 
 @dash.callback(
@@ -583,19 +591,19 @@ def apply_splits_callback(n_clicks, selected_rows, data, children):
     State(TransIDs.MODAL_CAT_CHANGE, 'opened'),
     config_prevent_initial_callbacks=True
 )
-def update_table_callback(cat: str,
-                          group: str,
-                          account: str,
-                          start_date: str,
-                          end_date: str,
-                          n_clicks: int,
-                          rows: list,
-                          columns: list,
-                          data: list,
-                          data_prev: list,
-                          yes_clicks: int,
-                          no_clicks: int,
-                          opened: bool) -> Tuple[list, bool]:
+def _update_table_callback(cat: str,
+                           group: str,
+                           account: str,
+                           start_date: str,
+                           end_date: str,
+                           n_clicks: int,
+                           rows: list,
+                           columns: list,
+                           data: list,
+                           data_prev: list,
+                           yes_clicks: int,
+                           no_clicks: int,
+                           opened: bool) -> Tuple[list, bool]:
     """
     This is the main callback for updating the table since each id can only
     have one callback that uses it as output. This function calls helper
@@ -616,7 +624,7 @@ def update_table_callback(cat: str,
     """
     to_open_modal = False
     if dash.callback_context.triggered_id == TransIDs.ADD_ROW_BTN:
-        return add_row(n_clicks, rows, columns), to_open_modal
+        return _add_row(n_clicks, rows, columns), to_open_modal
 
     elif dash.callback_context.triggered_id in [TransIDs.CAT_PICKER,
                                                 TransIDs.GROUP_PICKER,
@@ -673,7 +681,7 @@ def _filter_table(cat: str,
     return table.get_records()
 
 
-def add_row(n_clicks, rows, columns):
+def _add_row(n_clicks, rows, columns):
     """
     Adds a new row to the table
     :return: list of rows with new row appended
@@ -755,9 +763,9 @@ def _apply_changes_to_trans_db_cat_col(change: dict, all_trans: bool,
                State(TransIDs.FILE_UPLOADER, 'filename'),
                State(TransIDs.FILE_UPLOADER_DROPDOWN, 'value'),
                config_prevent_initial_callbacks=True)
-def update_output(list_of_contents: List[Any],
-                  list_of_names: List[str],
-                  dd_val: str):
+def _update_output(list_of_contents: List[Any],
+                   list_of_names: List[str],
+                   dd_val: str):
     if dd_val is None:
         return None  # todo open err modal
 
