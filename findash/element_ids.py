@@ -15,7 +15,13 @@ class TransIDs:
     INSERT_FILE_MODAL = 'insert_file_modal'
     SPLIT_BTN = 'split_btn'
     SPLIT_MODAL = 'split_modal'
-
+    ADD_SPLIT_BTN = 'add_split_btn'
+    SPLIT_CAT = 'split_cat'
+    SPLITS_COL = 'splits_col'
+    SPLIT_AMOUNT = 'split_amount'
+    SPLIT_MEMO = 'split_memo'
+    APPLY_SPLIT_BTN = 'apply_split_btn'
+    SPLIT_MODAL_CLOSE_BTN = 'split_modal_close_btn'
 
 class MonthlyIDs:
     ## Cards

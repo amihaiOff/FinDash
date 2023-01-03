@@ -9,6 +9,9 @@ import pandas as pd
 from dash import State, html, dash_table, dcc, Input, Output, ctx
 import dash_bootstrap_components as dbc
 from dash.dash_table.Format import Format, Symbol
+from dash.exceptions import PreventUpdate
+from dash_iconify import DashIconify
+
 
 from main import CAT_DB, TRANS_DB
 from accounts import ACCOUNTS
@@ -113,23 +116,48 @@ def _create_category_change_modal() -> dmc.Modal:
     )
 
 
-def _create_split_input() -> dmc.Group:
+def _create_split_input(split_num) -> dmc.Group:
+    icon = dmc.Tooltip(children=[DashIconify(icon="radix-icons:question-mark-circled")],
+                       label='Must be less than original transaction',
+                       withArrow=True,
+                       position='top'
+    )
     return dmc.Group([
-        dmc.Grid([
-            dmc.Col([dmc.TextInput(id='split_amount',
-                                    placeholder='Amount',
-                                    type='number',
-                                    label='Split amount',
-                                    description='Must be smaller than the original amount',
-                                    error='Must smaller than amount left to split')],
-                    span=4),
-            dmc.Col([dmc.TextInput(id='split_memo',
+        html.Div([
+            dmc.TextInput(id=f'{TransIDs.SPLIT_AMOUNT}-{split_num}',
+                                   placeholder='Amount',
+                                   type='number',
+                                   label=dmc.Group(['Split amount', icon],
+                                                   spacing=5)),
+            dmc.TextInput(id=f'{TransIDs.SPLIT_MEMO}-{split_num}',
                                    placeholder='Memo',
-                                   label='Add memo',
-                                   description='Optional')],
-                    span=4)
-               ])
-        ])
+                                   label='Add memo'),
+            html.Div(dmc.Select(
+                id=f'{TransIDs.SPLIT_CAT}-{split_num}',
+                label='Category',
+                searchable=True,
+                nothingFound="No options found",
+                style={'overflow': 'visible'},
+                data=_get_group_and_cat_for_dropdown()),
+                )
+               ],
+            style={'display': 'inline-block', 'width': '100%',
+                   'overflow': 'visible'})],
+        align='flex-end', style={'overflow': 'auto'})
+
+
+def create_split_input_card(split_num: int):
+    return dmc.Card([
+        dmc.CardSection([
+            dmc.Text(f'Split {split_num}', weight=500)],
+            inheritPadding=True,
+            py='xs',
+            withBorder=True),
+        _create_split_input(split_num)],
+    withBorder=True,
+    shadow="sm",
+    radius="md",
+    )
 
 
 def _create_split_trans_modal():
@@ -144,18 +172,31 @@ def _create_split_trans_modal():
         title='Split Transaction',
         id=TransIDs.SPLIT_MODAL,
         children=[
+            html.Div(dmc.Button(id=TransIDs.ADD_SPLIT_BTN,
+                                children=['+'],
+                                radius='xl',
+                                size='lg',
+                                compact=True),
+                     style={'position': 'fixed', 'bottom': '50px', 'right': '50px'}),
+            html.Div(dmc.Button(id=TransIDs.APPLY_SPLIT_BTN,
+                                children=['Apply'],
+                                size='md'),
+                        style={'position': 'fixed', 'bottom': '50px', 'right': '550px'}
+                     ),
+            html.Div(dmc.Button(id=TransIDs.SPLIT_MODAL_CLOSE_BTN,
+                                children=['Cancel'],
+                                size='md'),
+                     style={'position': 'fixed', 'bottom': '50px',
+                            'right': '400px'}
+                     ),
             dmc.Grid([
                 dmc.Col([table],
                         style={'overflowY': 'auto'},
                         span=5),
                 dmc.Col([
-                    dmc.Card([
-                        dmc.CardSection([
-                            dmc.Text('Split 1')],
-                            withBorder=True),
-                        _create_split_input()],
-                    withBorder=True)
+                    create_split_input_card(1)
                 ],
+                    id=TransIDs.SPLITS_COL,
                     span=6),
             ])
         ],
@@ -187,15 +228,20 @@ def _create_file_uploader():
             )
 
 
-def setup_table_cell_dropdowns():
-    account_names = [acc_name for acc_name, _ in ACCOUNTS.items()]
+def _get_group_and_cat_for_dropdown():
     options = []
     for name, group in CAT_DB.get_groups_as_groupby():
-        options.extend([{'label': f'{name}: {cat}', 'value': f'{cat}'} for cat in
-                        group[CatDBSchema.CAT_NAME]])
+        options.extend(
+            [{'label': f'{name}: {cat}', 'value': f'{cat}'} for cat in
+             group[CatDBSchema.CAT_NAME]])
+    return options
+
+def setup_table_cell_dropdowns():
+    account_names = [acc_name for acc_name, _ in ACCOUNTS.items()]
+
     dropdown_options = {
         TransDBSchema.CAT: {
-            'options': options
+            'options': _get_group_and_cat_for_dropdown(),
         },
         TransDBSchema.ACCOUNT: {
             'options': [{'label': f'{account}', 'value': f'{account}'} for
@@ -478,9 +524,31 @@ def _cat_change_modal_callback_trigger(data: List[dict],
     State(TransIDs.SPLIT_MODAL, 'opened'),
     config_prevent_initial_callbacks=True
 )
-def _split_trans_model_callback(n_clicks, opened):
+def _open_split_trans_modal_callback(n_clicks, opened):
     return not opened
 
+
+@dash.callback(
+    Output(TransIDs.SPLITS_COL, 'children'),
+    Input(TransIDs.ADD_SPLIT_BTN, 'n_clicks'),
+    State(TransIDs.SPLITS_COL, 'children'),
+    config_prevent_initial_callbacks=True
+)
+def add_split(n_clicks, children):
+    if len(children) == 9:
+        raise PreventUpdate
+
+    new_split = create_split_input_card(n_clicks + 1)
+    children.append(dmc.Space(h=20))
+    children.append(new_split)
+    return children
+
+
+# @dash.callback(
+#     Output()
+# )
+def apply_splits_callback():
+    pass
 
 @dash.callback(
     Output(TransIDs.TRANS_TBL, 'data'),
