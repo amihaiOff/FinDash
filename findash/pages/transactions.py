@@ -162,20 +162,33 @@ def _create_split_input_card(split_num: int):
     )
 
 
+def _create_split_trans_table():
+    return _create_trans_table(id=TransIDs.SPLIT_TBL,
+                               row_selectable='single',
+                               rows_deletable=False,
+                               filter_action='native',
+                               subset_cols=[TransDBSchema.DATE,
+                                            TransDBSchema.PAYEE,
+                                            TransDBSchema.AMOUNT],
+                               export_format=None,
+                               editable=False)
+
+
 def _create_split_trans_modal():
-    table = _create_trans_table(id=TransIDs.SPLIT_TBL,
-                                row_selectable='single',
-                                rows_deletable=False,
-                                filter_action='native',
-                                subset_cols=[TransDBSchema.DATE,
-                                             TransDBSchema.PAYEE,
-                                             TransDBSchema.AMOUNT],
-                                export_format=None,
-                                editable=False)
+    table = _create_split_trans_table()
+    split_alert = dmc.Alert(
+        'Sum of amounts in split must equal amount of original transaction',
+        id=TransIDs.SPLIT_AMOUNT_ALERT,
+        color='red',
+        withCloseButton=True,
+        title='Split error',
+        hide=True
+    )
     return dmc.Modal(
         title='Split Transaction',
         id=TransIDs.SPLIT_MODAL,
         children=[
+            split_alert,
             html.Div(dmc.Button(id=TransIDs.ADD_SPLIT_BTN,
                                 children=['+'],
                                 radius='xl',
@@ -553,10 +566,11 @@ def _add_split(n_clicks, children):
 
 
 @dash.callback(
-    Output(TransIDs.PLACEDHOLDER, 'children'),
+    Output(TransIDs.SPLIT_TBL, 'derived_virtual_data'),
+    Output(TransIDs.SPLIT_AMOUNT_ALERT, 'hide'),
     Input(TransIDs.APPLY_SPLIT_BTN, 'n_clicks'),
     State(TransIDs.SPLIT_TBL, 'derived_virtual_selected_rows'),
-    State(TransIDs.SPLIT_TBL, 'derived_virtual_data'),
+    State(TransIDs.TRANS_TBL, 'data'),
     State({'type': 'split_amount', 'index': ALL}, 'value'),
     State({'type': 'split_memo', 'index': ALL}, 'value'),
     State({'type': 'split_cat', 'index': ALL}, 'value'),
@@ -568,9 +582,18 @@ def _apply_splits_callback(n_clicks,
                            split_amounts,
                            split_memos,
                            split_cats):
-    print(split_amounts)
-    print(split_memos)
-    print(split_cats)
+    row = data[selected_rows[0]]
+    print(row)
+    row_id = row[TransDBSchema.ID]
+    split_amounts = [float(x) for x in split_amounts]
+    row_amount = row[TransDBSchema.AMOUNT]
+    split_amount = sum(split_amounts)
+    print(row_amount, split_amount)
+    if split_amount != row_amount:
+        return dash.no_update, False
+
+    TRANS_DB.apply_split(row_id, split_amounts, split_memos, split_cats)
+    return _create_split_trans_table()
 
 
 @dash.callback(

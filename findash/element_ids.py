@@ -23,6 +23,7 @@ class TransIDs:
     APPLY_SPLIT_BTN = 'apply_split_btn'
     SPLIT_MODAL_CLOSE_BTN = 'split_modal_close_btn'
     SPLIT_TBL = 'split_tbl'
+    SPLIT_AMOUNT_ALERT = 'split_amount_alert'
 
 class MonthlyIDs:
     ## Cards
@@ -46,3 +47,8 @@ class BreakdownIDs:
     EXPENSES_OVER_TIME_BY_GROUP_FIG = 'expenses_over_time_by_group_fig'
     BUDGET_USAGE_FIG = 'budget_usage_fig'
     BUDGET_USAGE_DD = 'budget_usage_dd'
+
+
+class GeneralIDs:
+    ERROR_MODAL = 'error_modal'
+    ERROR_MODAL_CLOSE_BTN = 'error_modal_close_btn'

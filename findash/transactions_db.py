@@ -393,6 +393,21 @@ class TransactionsDBParquet:
         group = self._cat_db.get_group_of_category(new_value)
         self.update_data(TransDBSchema.CAT_GROUP, index, group)
 
+    def apply_split(self,
+                    row_id: str,
+                    split_amounts,
+                    split_memos,
+                    split_cats):
+        """
+        Split a transaction into mulitple categories
+        :param row_id:
+        :param split_amounts:
+        :param split_memos:
+        :param split_cats:
+        :return:
+        """
+        pass
+
     def get_data_by_group(self, group: str):
         """
         get data by group
