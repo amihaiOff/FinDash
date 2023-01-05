@@ -149,8 +149,19 @@ def _create_split_input(split_num) -> dmc.Group:
 
 def _create_split_input_card(split_num: int):
     return dmc.Card([
-        dmc.CardSection([
-            dmc.Text(f'Split {split_num}', weight=500)],
+        dmc.CardSection(
+            dmc.Group(
+                children=[
+                    dmc.Text(f'Split {split_num}', weight=500),
+                    dmc.ActionIcon(
+                        DashIconify(icon='mdi:close'),
+                        color='gray',
+                        id={'type': TransIDs.SPLIT_CARD_CLOSE_BTN,
+                            'index': f'{TransIDs.SPLIT_CARD_CLOSE_BTN}-{split_num}'}
+                    )
+                ],
+                position='apart'
+            ),
             inheritPadding=True,
             py='xs',
             withBorder=True),
@@ -552,14 +563,29 @@ def _open_split_trans_modal_callback(n_clicks_add_split, n_clicks_close, opened)
 @dash.callback(
     Output(TransIDs.SPLITS_COL, 'children'),
     Input(TransIDs.ADD_SPLIT_BTN, 'n_clicks'),
+    Input({'type': TransIDs.SPLIT_CARD_CLOSE_BTN, 'index': ALL}, 'n_clicks'),
     State(TransIDs.SPLITS_COL, 'children'),
     config_prevent_initial_callbacks=True
 )
-def _add_split(n_clicks, children):
+def _add_or_remove_split(n_clicks_add, n_clicks_remove, children):
+    triggered_id = ctx.triggered_id
+    # remove split
+    if isinstance(triggered_id, dict):
+        triggered_id = triggered_id['index']
+        split_ind = triggered_id.split('-')[1]
+        split_ind = int(split_ind) - 1  # split num start at 1
+        if split_ind == 0:
+            del children[split_ind]
+        else:
+            del children[split_ind * 2]
+            del children[split_ind * 2 - 1]
+        return children
+
+    # add split
     if len(children) == 9:
         raise PreventUpdate
 
-    new_split = _create_split_input_card(n_clicks + 1)
+    new_split = _create_split_input_card(n_clicks_add + 1)
     children.append(dmc.Space(h=20))
     children.append(new_split)
     return children

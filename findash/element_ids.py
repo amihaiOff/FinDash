@@ -24,6 +24,9 @@ class TransIDs:
     SPLIT_MODAL_CLOSE_BTN = 'split_modal_close_btn'
     SPLIT_TBL = 'split_tbl'
     SPLIT_AMOUNT_ALERT = 'split_amount_alert'
+    SPLIT_CARD_CLOSE_BTN = 'split_card_close_btn'
+    SPLIT_CARD = 'split_card'
+
 
 class MonthlyIDs:
     ## Cards
