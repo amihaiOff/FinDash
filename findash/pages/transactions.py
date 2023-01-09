@@ -178,7 +178,7 @@ def _create_split_trans_modal():
     table = _create_split_trans_table()
     split_alert = dmc.Alert(
         'Sum of amounts in split must equal amount of original transaction',
-        id=TransIDs.SPLIT_AMOUNT_ALERT,
+        id=TransIDs.SPLIT_ALERT,
         color='red',
         withCloseButton=True,
         title='Split error',
@@ -336,6 +336,7 @@ def _create_trans_table(id: str = TransIDs.TRANS_TBL,
                                         'overflow': 'hidden'},
                                     {'if': {'column_id': TransDBSchema.DATE},
                                         'color': 'gray'},
+                                    # {'if': {}}
                                 ],
                                 tooltip_data=tooltip_data,
                                 tooltip_duration=20000,
@@ -567,33 +568,44 @@ def _add_split(n_clicks, children):
 
 @dash.callback(
     Output(TransIDs.SPLIT_TBL, 'derived_virtual_data'),
-    Output(TransIDs.SPLIT_AMOUNT_ALERT, 'hide'),
+    Output(TransIDs.SPLIT_ALERT, 'hide'),
+    Output(TransIDs.SPLIT_ALERT, 'children'),
     Input(TransIDs.APPLY_SPLIT_BTN, 'n_clicks'),
-    State(TransIDs.SPLIT_TBL, 'derived_virtual_selected_rows'),
-    State(TransIDs.TRANS_TBL, 'data'),
+    State(TransIDs.SPLIT_TBL, 'derived_virtual_data'),
+    State(TransIDs.SPLIT_TBL, 'selected_rows'),
     State({'type': 'split_amount', 'index': ALL}, 'value'),
     State({'type': 'split_memo', 'index': ALL}, 'value'),
     State({'type': 'split_cat', 'index': ALL}, 'value'),
     config_prevent_initial_callbacks=True
 )
 def _apply_splits_callback(n_clicks,
-                           selected_rows,
-                           data,
-                           split_amounts,
-                           split_memos,
-                           split_cats):
-    row = data[selected_rows[0]]
-    print(row)
-    row_id = row[TransDBSchema.ID]
-    split_amounts = [float(x) for x in split_amounts]
-    row_amount = row[TransDBSchema.AMOUNT]
-    split_amount = sum(split_amounts)
-    print(row_amount, split_amount)
-    if split_amount != row_amount:
-        return dash.no_update, False
+                           filtered_data: List[dict],
+                           selected_row_original: List[int],
+                           split_amounts: List[Union[str, float]],
+                           split_memos: List[str],
+                           split_cats: List[str]):
+    if selected_row_original is None:
+        return dash.no_update,  False, "No transaction selected"
 
-    TRANS_DB.apply_split(row_id, split_amounts, split_memos, split_cats)
-    return _create_split_trans_table()
+    row = TRANS_DB.iloc[selected_row_original[0]]
+    row_id = row[TransDBSchema.ID]
+    row_amount = row[TransDBSchema.AMOUNT]
+
+    split_amounts = [float(s) for s in split_amounts if s != '' and s != 0]
+    split_amount = sum(split_amounts)
+    if split_amount != row_amount:
+        return dash.no_update, False, \
+            f"Split amount must equal original amount ({row_amount})"
+
+    new_trans_ids = TRANS_DB.apply_split(row_id, split_amounts, split_memos,
+                                         split_cats)
+
+    # todo update TRANS_TBL and SPLIT_TBL
+    #   I thought of using the id column to update the split table with new data
+    #   based on the ids, but this would mess up the filtering as the other trans
+    #   won't be accessible when removing the filter.
+    #   furthermore, I cannot have trans_tbl as output here so I either need to find
+    #   a way to call the other callback or update the data some other way
 
 
 @dash.callback(

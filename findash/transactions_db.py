@@ -28,6 +28,7 @@ class TransDBSchema:
     OUTFLOW: float = 'outflow'  # if forex trans will show the conversion to ils here
     RECONCILED: bool = 'reconciled'
     AMOUNT: float = 'amount'  # can be in forex
+    SPLIT: str = 'split'
 
     @classmethod
     def col_display_name_mapping(cls):
@@ -73,7 +74,8 @@ class TransDBSchema:
                 cls.ACCOUNT: None,
                 cls.INFLOW: 0,
                 cls.OUTFLOW: 0,
-                cls.RECONCILED: False}
+                cls.RECONCILED: False,
+                cls.SPLIT: None}
 
     @classmethod
     def get_db_col_names(cls):
@@ -98,20 +100,11 @@ class TransDBSchema:
             'str': [cls.PAYEE, cls.MEMO],
             'numeric': [cls.AMOUNT, cls.INFLOW, cls.OUTFLOW],
             'cat': [cls.CAT, cls.ACCOUNT],
-            # 'readonly': [cls.CAT_GROUP]
         }
 
     @classmethod
     def get_dropdown_cols(cls):
         return [cls.CAT, cls.ACCOUNT]
-
-    @classmethod
-    def get_non_special_cols(cls):
-        return [cls.PAYEE, cls.MEMO, cls.INFLOW, cls.OUTFLOW, cls.AMOUNT]
-
-    @classmethod
-    def get_date_cols(cls):
-        return [cls.DATE]
 
     @classmethod
     def get_categorical_cols(cls):
@@ -178,23 +171,15 @@ class TransactionsDBParquet:
         final_df = apply_dtypes(final_df, include_date=False)
         final_df = set_cat_col_categories(final_df, category_vals)
         self._db = final_df
-        self._sort_by_date()
+
+        # todo remove
+        if TransDBSchema.SPLIT not in self._db.columns:
+            self._db[TransDBSchema.SPLIT] = None
+
+        self._sort_db()
 
         # set monthly_trans
         self.set_specific_month(*get_current_year_and_month())
-
-    @staticmethod
-    def _get_category_vals(df) -> Dict[str, pd.CategoricalDtype]:
-        """
-        get all possible values for category columns
-        :param df:
-        :return:
-        """
-        vals = {}
-        for col in TransDBSchema.get_categorical_cols():
-            vals[col] = df[col].cat.categories.tolist()
-
-        return vals
 
     def save_db(self, months_to_save: List[Tuple[str, str]]) -> None:
         """
@@ -240,7 +225,7 @@ class TransactionsDBParquet:
         df = self._add_uuids(df)
         df = self._apply_categories_and_groups(df)
         self._db = pd.concat([self._db, df])
-        self._sort_by_date()
+        self._sort_db()
         self._db = self._db.reset_index(drop=True)
         self.save_db_from_uuids(df[TransDBSchema.ID].to_list())
 
@@ -270,12 +255,16 @@ class TransactionsDBParquet:
 
         return df
 
-    def _sort_by_date(self):
+    def _sort_db(self):
         """
         sort the db by date
         :return:
         """
-        self._db = self._db.sort_values(by=TransDBSchema.DATE, ascending=False)
+        self._db['s1'] = self._db[TransDBSchema.SPLIT].str.split('-').str[0]
+        self._db['s2'] = self._db[TransDBSchema.SPLIT].str.split('-').str[2]
+        self._db = self._db.sort_values(by=[TransDBSchema.DATE, 's1', 's2'],
+                                        ascending=False)
+        self.drop(columns=['s1', 's2'], inplace=True)
         self._db = self._db.reset_index(drop=True)
 
     def _apply_categories_and_groups(self, df: pd.DataFrame):
@@ -359,7 +348,7 @@ class TransactionsDBParquet:
         uuid_list = [self._db.loc[index, TransDBSchema.ID]]
 
         if col_name == TransDBSchema.DATE:
-            self._sort_by_date()
+            self._sort_db()
 
         self.save_db_from_uuids(uuid_list)
 
@@ -397,16 +386,51 @@ class TransactionsDBParquet:
                     row_id: str,
                     split_amounts,
                     split_memos,
-                    split_cats):
+                    split_cats) -> List[str]:
         """
-        Split a transaction into mulitple categories
+        Split a transaction into multiple categories
         :param row_id:
         :param split_amounts:
         :param split_memos:
         :param split_cats:
         :return:
         """
-        pass
+        non_na_splits = self._db[TransDBSchema.SPLIT][~self._db[TransDBSchema.SPLIT].isna()]
+        next_split = self._get_next_split_index(non_na_splits)
+        split_row = self._db[self._db[TransDBSchema.ID] == row_id]
+        split_row[TransDBSchema.SPLIT] = f'{next_split}-0'
+
+        ids = []
+        for split_ind, (amount, cat, memo) in enumerate(zip(split_amounts, split_cats, split_memos)):
+            new_split = split_row.copy()
+            new_split[TransDBSchema.AMOUNT] = amount
+
+            if new_split[TransDBSchema.OUTFLOW].iloc[0] > 0:
+                new_split[TransDBSchema.OUTFLOW] = amount
+            else:
+                new_split[TransDBSchema.INFLOW] = amount
+
+            ids.append(create_uuid())
+            new_split[TransDBSchema.ID] = ids[-1]
+
+            new_split[TransDBSchema.CAT] = cat
+            new_split[TransDBSchema.CAT_GROUP] = self._cat_db.get_group_of_category(cat)
+            new_split[TransDBSchema.MEMO] = memo
+            new_split[TransDBSchema.SPLIT] = f'{next_split}-{split_ind + 1}'
+            self._db = pd.concat([self._db, new_split])
+
+        self._db.drop(index=split_row.index, inplace=True)
+        self._sort_db()
+        # self.save_db_from_uuids(ids)
+        return ids
+
+    @staticmethod
+    def _get_next_split_index(col: pd.Series) -> int:
+        if len(col) == 0:
+            return 1
+        col_copy = col.copy().to_frame()
+        col_copy['s1'] = col_copy.iloc[0, :].str.split('-').str[0]
+        return col_copy['s1'].astype(int).sort_values().iloc[-1] + 1
 
     def get_data_by_group(self, group: str):
         """
@@ -473,6 +497,19 @@ class TransactionsDBParquet:
             '%Y-%m') == target_date]
 
         return target_trans
+
+    @staticmethod
+    def _get_category_vals(df) -> Dict[str, pd.CategoricalDtype]:
+        """
+        get all possible values for category columns
+        :param df:
+        :return:
+        """
+        vals = {}
+        for col in TransDBSchema.get_categorical_cols():
+            vals[col] = df[col].cat.categories.tolist()
+
+        return vals
 
     def get_records(self) -> dict:
         """
