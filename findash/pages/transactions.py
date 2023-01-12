@@ -162,8 +162,9 @@ def _create_split_input_card(split_num: int):
     )
 
 
-def _create_split_trans_table():
+def _create_split_trans_table(records: Optional[List[dict]] = None) -> dash_table.DataTable:
     return _create_trans_table(id=TransIDs.SPLIT_TBL,
+                               records=records,
                                row_selectable='single',
                                rows_deletable=False,
                                filter_action='native',
@@ -207,7 +208,7 @@ def _create_split_trans_modal():
                             'right': '400px'}
                      ),
             dmc.Grid([
-                dmc.Col([table],
+                dmc.Col([html.Div(table, id='split_tbl_div')],
                         style={'overflowY': 'auto'},
                         span=5),
                 dmc.Col([
@@ -286,6 +287,7 @@ def _create_add_row_split_buttons() -> Tuple[dbc.Col, dbc.Col]:
 
 
 def _create_trans_table(id: str = TransIDs.TRANS_TBL,
+                        records: Optional[List[dict]] = None,
                         row_selectable: Union[str, bool, float] = False,
                         rows_deletable: bool = True,
                         filter_action: str = 'none',
@@ -312,7 +314,8 @@ def _create_trans_table(id: str = TransIDs.TRANS_TBL,
                            for column, value in row.items()} for row in
                         trans_db_formatted[TransDBSchema.MEMO].to_frame().to_dict('records')]
 
-    return dash_table.DataTable(data=trans_db_formatted.to_dict('records'),
+    data = trans_db_formatted.to_dict('records') if records is None else records
+    return dash_table.DataTable(data=data,
                                 id=id,
                                 editable=editable,
                                 filter_action=filter_action,
@@ -336,7 +339,10 @@ def _create_trans_table(id: str = TransIDs.TRANS_TBL,
                                         'overflow': 'hidden'},
                                     {'if': {'column_id': TransDBSchema.DATE},
                                         'color': 'gray'},
-                                    # {'if': {}}
+                                    {'if': {
+                                        'filter_query': f'{{{TransDBSchema.SPLIT}}} is nil'},
+                                        'color': 'lightblue',
+                                    }
                                 ],
                                 tooltip_data=tooltip_data,
                                 tooltip_duration=20000,
@@ -364,10 +370,6 @@ def _create_main_trans_table() -> dash_table.DataTable:
     return _create_trans_table(subset_cols=col_subset)
 
 
-trans_table = _create_main_trans_table()
-cat_change_modal = _create_category_change_modal()
-split_trans_modal = _create_split_trans_modal()
-upload_file_section = _create_file_uploader()
 # insert_file_modal = _create_insert_file_modal()
 
 category_picker = dbc.Card(
@@ -407,8 +409,8 @@ date_picker = dbc.Card([
 
 def _create_layout():
     return dbc.Container([
-        cat_change_modal,
-        split_trans_modal,
+        cat_change_modal := _create_category_change_modal(),
+        split_trans_modal := _create_split_trans_modal(),
         html.Div(id=TransIDs.PLACEDHOLDER,
                  style={'display': 'none'}),
         dbc.Row([
@@ -425,10 +427,12 @@ def _create_layout():
                 dmc.Space(h=20),
                 dbc.Row(_create_add_row_split_buttons()),
                 dmc.Space(h=20),
-                upload_file_section,
+                upload_file_section := _create_file_uploader(),
                 # insert_file_modal
             ], width=2),
-            dbc.Col([trans_table], width=10),
+            dbc.Col([
+                trans_table := _create_main_trans_table()
+            ], width=10),
             dcc.Store(id=TransIDs.INSERT_FILE_SUMMARY_STORE)
         ])
 ])
@@ -567,11 +571,12 @@ def _add_split(n_clicks, children):
 
 
 @dash.callback(
-    Output(TransIDs.SPLIT_TBL, 'derived_virtual_data'),
+    Output('split_tbl_div', 'children'),
     Output(TransIDs.SPLIT_ALERT, 'hide'),
     Output(TransIDs.SPLIT_ALERT, 'children'),
     Input(TransIDs.APPLY_SPLIT_BTN, 'n_clicks'),
     State(TransIDs.SPLIT_TBL, 'derived_virtual_data'),
+    State(TransIDs.SPLIT_TBL, 'derived_virtual_selected_rows'),
     State(TransIDs.SPLIT_TBL, 'selected_rows'),
     State({'type': 'split_amount', 'index': ALL}, 'value'),
     State({'type': 'split_memo', 'index': ALL}, 'value'),
@@ -580,6 +585,7 @@ def _add_split(n_clicks, children):
 )
 def _apply_splits_callback(n_clicks,
                            filtered_data: List[dict],
+                           selected_row_filtered: List[int],
                            selected_row_original: List[int],
                            split_amounts: List[Union[str, float]],
                            split_memos: List[str],
@@ -597,16 +603,22 @@ def _apply_splits_callback(n_clicks,
         return dash.no_update, False, \
             f"Split amount must equal original amount ({row_amount})"
 
-    new_trans_ids = TRANS_DB.apply_split(row_id, split_amounts, split_memos,
-                                         split_cats)
+    new_rows = TRANS_DB.apply_split(row_id, split_amounts, split_memos,
+                                    split_cats)
+
+    # update split tbl
+    split_tbl_cols = list(filtered_data[0].keys())
+    records = pd.concat(new_rows)[split_tbl_cols].to_dict('records')
+    for rec in records:
+        filtered_data.insert(selected_row_filtered[0], rec)
+    return [_create_split_trans_table(records=filtered_data)], True, ''
 
     # todo update TRANS_TBL and SPLIT_TBL
-    #   I thought of using the id column to update the split table with new data
-    #   based on the ids, but this would mess up the filtering as the other trans
-    #   won't be accessible when removing the filter.
-    #   furthermore, I cannot have trans_tbl as output here so I either need to find
-    #   a way to call the other callback or update the data some other way
-
+    #   split_tbl - works, need to remove original row and format the new rows (make sure that the table
+    #      is not too convoluted)
+    #   trans_tbl - have the table inside a div and a callback that updates the div
+    #       with a new table. the callback will be triggered by an invisible component that will get the
+    #      new table data as an input. the callback will be the only place where the div is updated.
 
 @dash.callback(
     Output(TransIDs.TRANS_TBL, 'data'),

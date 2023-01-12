@@ -386,7 +386,7 @@ class TransactionsDBParquet:
                     row_id: str,
                     split_amounts,
                     split_memos,
-                    split_cats) -> List[str]:
+                    split_cats) -> List[List[str]]:
         """
         Split a transaction into multiple categories
         :param row_id:
@@ -400,7 +400,7 @@ class TransactionsDBParquet:
         split_row = self._db[self._db[TransDBSchema.ID] == row_id]
         split_row[TransDBSchema.SPLIT] = f'{next_split}-0'
 
-        ids = []
+        rows = []
         for split_ind, (amount, cat, memo) in enumerate(zip(split_amounts, split_cats, split_memos)):
             new_split = split_row.copy()
             new_split[TransDBSchema.AMOUNT] = amount
@@ -410,19 +410,19 @@ class TransactionsDBParquet:
             else:
                 new_split[TransDBSchema.INFLOW] = amount
 
-            ids.append(create_uuid())
-            new_split[TransDBSchema.ID] = ids[-1]
+            new_split[TransDBSchema.ID] = create_uuid()
 
             new_split[TransDBSchema.CAT] = cat
             new_split[TransDBSchema.CAT_GROUP] = self._cat_db.get_group_of_category(cat)
             new_split[TransDBSchema.MEMO] = memo
             new_split[TransDBSchema.SPLIT] = f'{next_split}-{split_ind + 1}'
             self._db = pd.concat([self._db, new_split])
+            rows.append(new_split)
 
         self._db.drop(index=split_row.index, inplace=True)
         self._sort_db()
         # self.save_db_from_uuids(ids)
-        return ids
+        return rows
 
     @staticmethod
     def _get_next_split_index(col: pd.Series) -> int:
