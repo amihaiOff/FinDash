@@ -413,6 +413,7 @@ def _create_layout():
         split_trans_modal := _create_split_trans_modal(),
         html.Div(id=TransIDs.PLACEDHOLDER,
                  style={'display': 'none'}),
+        html.Div(id=TransIDs.TRANS_TBL_NEW_DATA_DIV,),
         dbc.Row([
             dbc.Col([
                 category_picker,
@@ -431,7 +432,7 @@ def _create_layout():
                 # insert_file_modal
             ], width=2),
             dbc.Col([
-                trans_table := _create_main_trans_table()
+                html.Div(_create_main_trans_table(), id=TransIDs.TRANS_TBL_DIV)
             ], width=10),
             dcc.Store(id=TransIDs.INSERT_FILE_SUMMARY_STORE)
         ])
@@ -571,6 +572,7 @@ def _add_split(n_clicks, children):
 
 
 @dash.callback(
+    Output(TransIDs.TRANS_TBL_NEW_DATA_DIV, 'children').
     Output('split_tbl_div', 'children'),
     Output(TransIDs.SPLIT_ALERT, 'hide'),
     Output(TransIDs.SPLIT_ALERT, 'children'),
@@ -591,7 +593,7 @@ def _apply_splits_callback(n_clicks,
                            split_memos: List[str],
                            split_cats: List[str]):
     if selected_row_original is None:
-        return dash.no_update,  False, "No transaction selected"
+        return dash.no_update, dash.no_update,  False, "No transaction selected"
 
     row = TRANS_DB.iloc[selected_row_original[0]]
     row_id = row[TransDBSchema.ID]
@@ -600,7 +602,7 @@ def _apply_splits_callback(n_clicks,
     split_amounts = [float(s) for s in split_amounts if s != '' and s != 0]
     split_amount = sum(split_amounts)
     if split_amount != row_amount:
-        return dash.no_update, False, \
+        return dash.no_update, dash.no_update, False, \
             f"Split amount must equal original amount ({row_amount})"
 
     new_rows = TRANS_DB.apply_split(row_id, split_amounts, split_memos,
@@ -611,7 +613,8 @@ def _apply_splits_callback(n_clicks,
     records = pd.concat(new_rows)[split_tbl_cols].to_dict('records')
     for rec in records:
         filtered_data.insert(selected_row_filtered[0], rec)
-    return [_create_split_trans_table(records=filtered_data)], True, ''
+    return [_create_main_trans_table()], \
+        [_create_split_trans_table(records=filtered_data)], True, ''
 
     # todo update TRANS_TBL and SPLIT_TBL
     #   split_tbl - works, need to remove original row and format the new rows (make sure that the table

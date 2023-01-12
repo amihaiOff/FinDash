@@ -1,5 +1,7 @@
 class TransIDs:
     TRANS_TBL = 'trans_table'
+    TRANS_TBL_DIV = 'trans_table_div'
+    TRANS_TBL_NEW_DATA_DIV = 'trans_tbl_new_data_div'
     CAT_PICKER = 'category_picker'
     ACC_PICKER = 'account_picker'
     GROUP_PICKER = 'group_picker'
