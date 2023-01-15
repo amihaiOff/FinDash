@@ -1,7 +1,6 @@
 class TransIDs:
     TRANS_TBL = 'trans_table'
     TRANS_TBL_DIV = 'trans_table_div'
-    TRANS_TBL_NEW_DATA_DIV = 'trans_tbl_new_data_div'
     CAT_PICKER = 'category_picker'
     ACC_PICKER = 'account_picker'
     GROUP_PICKER = 'group_picker'
@@ -25,7 +24,9 @@ class TransIDs:
     APPLY_SPLIT_BTN = 'apply_split_btn'
     SPLIT_MODAL_CLOSE_BTN = 'split_modal_close_btn'
     SPLIT_TBL = 'split_tbl'
-    SPLIT_ALERT = 'split_alert'
+    SPLIT_NOTIF = 'split_notif'
+    ROW_DEL_CONFIRM_DIALOG = 'row_del_confirm_dialog'
+
 
 class MonthlyIDs:
     ## Cards

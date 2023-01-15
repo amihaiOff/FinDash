@@ -1,4 +1,5 @@
 from datetime import datetime
+from functools import partial
 from typing import List, Optional, Tuple, Any, Union
 import base64
 import io
@@ -162,9 +163,12 @@ def _create_split_input_card(split_num: int):
     )
 
 
-def _create_split_trans_table(records: Optional[List[dict]] = None) -> dash_table.DataTable:
+def _create_split_trans_table(table: Optional[List[int]] = None) -> dash_table.DataTable:
+    if table is None:
+        table = TRANS_DB
+
     return _create_trans_table(id=TransIDs.SPLIT_TBL,
-                               records=records,
+                               table=table,
                                row_selectable='single',
                                rows_deletable=False,
                                filter_action='native',
@@ -175,21 +179,31 @@ def _create_split_trans_table(records: Optional[List[dict]] = None) -> dash_tabl
                                editable=False)
 
 
+def _create_split_alert(msg: str, color: str, title: str) -> dmc.Alert:
+    return dmc.Alert(
+        msg,
+        color=color,
+        withCloseButton=True,
+        title=title,
+        hide=False
+    )
+
+
+_create_split_fail = partial(_create_split_alert, color='red',
+                             title='Split error')
+_create_split_success = partial(_create_split_alert, color='green',
+                                title='Split success')
+
+
 def _create_split_trans_modal():
     table = _create_split_trans_table()
-    split_alert = dmc.Alert(
-        'Sum of amounts in split must equal amount of original transaction',
-        id=TransIDs.SPLIT_ALERT,
-        color='red',
-        withCloseButton=True,
-        title='Split error',
-        hide=True
-    )
+    split_notif = html.Div(id=TransIDs.SPLIT_NOTIF)
+
     return dmc.Modal(
         title='Split Transaction',
         id=TransIDs.SPLIT_MODAL,
         children=[
-            split_alert,
+            split_notif,
             html.Div(dmc.Button(id=TransIDs.ADD_SPLIT_BTN,
                                 children=['+'],
                                 radius='xl',
@@ -286,8 +300,8 @@ def _create_add_row_split_buttons() -> Tuple[dbc.Col, dbc.Col]:
     return add_row_btn, split_btn
 
 
-def _create_trans_table(id: str = TransIDs.TRANS_TBL,
-                        records: Optional[List[dict]] = None,
+def _create_trans_table(id: str,
+                        table: pd.DataFrame,
                         row_selectable: Union[str, bool, float] = False,
                         rows_deletable: bool = True,
                         filter_action: str = 'none',
@@ -300,13 +314,13 @@ def _create_trans_table(id: str = TransIDs.TRANS_TBL,
                            Options: 'single', 'multi', False
     :return:
     """
-    trans_db_formatted = format_date_col_for_display(TRANS_DB,
+    trans_db_formatted = format_date_col_for_display(table,
                                                      TransDBSchema.DATE)
     col_defs = setup_table_cols(subset_cols)
 
     if subset_cols is not None:
         trans_db_formatted = trans_db_formatted[subset_cols]
-        col_defs = setup_table_cols(subset_cols)
+        # col_defs = setup_table_cols(subset_cols)
 
     tooltip_data = None
     if subset_cols is None or TransDBSchema.MEMO in subset_cols:
@@ -314,8 +328,7 @@ def _create_trans_table(id: str = TransIDs.TRANS_TBL,
                            for column, value in row.items()} for row in
                         trans_db_formatted[TransDBSchema.MEMO].to_frame().to_dict('records')]
 
-    data = trans_db_formatted.to_dict('records') if records is None else records
-    return dash_table.DataTable(data=data,
+    return dash_table.DataTable(data=trans_db_formatted.to_dict('records'),
                                 id=id,
                                 editable=editable,
                                 filter_action=filter_action,
@@ -339,10 +352,6 @@ def _create_trans_table(id: str = TransIDs.TRANS_TBL,
                                         'overflow': 'hidden'},
                                     {'if': {'column_id': TransDBSchema.DATE},
                                         'color': 'gray'},
-                                    {'if': {
-                                        'filter_query': f'{{{TransDBSchema.SPLIT}}} is nil'},
-                                        'color': 'lightblue',
-                                    }
                                 ],
                                 tooltip_data=tooltip_data,
                                 tooltip_duration=20000,
@@ -367,7 +376,9 @@ def _create_main_trans_table() -> dash_table.DataTable:
     col_subset = [TransDBSchema.DATE, TransDBSchema.PAYEE, TransDBSchema.INFLOW,
                  TransDBSchema.OUTFLOW, TransDBSchema.CAT, TransDBSchema.MEMO,
                  TransDBSchema.ACCOUNT]
-    return _create_trans_table(subset_cols=col_subset)
+    return _create_trans_table(id=TransIDs.TRANS_TBL,
+                               table=TRANS_DB,
+                               subset_cols=col_subset)
 
 
 # insert_file_modal = _create_insert_file_modal()
@@ -397,13 +408,12 @@ account_picker = dbc.Card([
 
 date_picker = dbc.Card([
     dbc.CardHeader('Date Range'),
-    dcc.DatePickerRange(
+    dmc.DateRangePicker(
         id=TransIDs.DATE_PICKER,
         clearable=True,
-        stay_open_on_select=False,  # doesn't work
-        start_date_placeholder_text='Pick a date',
-        end_date_placeholder_text='Pick a date'
+        label=''
     )
+    # todo
 ])
 
 
@@ -411,9 +421,11 @@ def _create_layout():
     return dbc.Container([
         cat_change_modal := _create_category_change_modal(),
         split_trans_modal := _create_split_trans_modal(),
+        dcc.ConfirmDialog(id=TransIDs.ROW_DEL_CONFIRM_DIALOG,
+                          displayed=False,
+                          message='Are you sure you want to delete this row?'),
         html.Div(id=TransIDs.PLACEDHOLDER,
                  style={'display': 'none'}),
-        html.Div(id=TransIDs.TRANS_TBL_NEW_DATA_DIV,),
         dbc.Row([
             dbc.Col([
                 category_picker,
@@ -494,7 +506,7 @@ def _detect_changes_in_table(df: pd.DataFrame,
 
 
 def _trans_table_callback_trigger(data: List[dict],
-                                  data_prev: List[dict]) -> bool:
+                                  data_prev: List[dict]) -> Tuple[bool, bool]:
     """
     logic for handling callbacks triggered by changes to trans table
     :param data:
@@ -502,14 +514,16 @@ def _trans_table_callback_trigger(data: List[dict],
     :return:
     """
     to_open_modal = False
+    row_del_cnf_diag = False
     data, data_prev = pd.DataFrame(data=data), pd.DataFrame(data_prev)
     if len(data) != len(data_prev):
-        _remove_row(data, data_prev)
-        return to_open_modal
+        # _remove_row(data, data_prev)
+        row_del_cnf_diag = True
+        return to_open_modal, row_del_cnf_diag
 
     changes = _detect_changes_in_table(data, data_prev)
     if changes is None:
-        return to_open_modal
+        return to_open_modal, row_del_cnf_diag
 
     for change in changes:
         if change['column_name'] not in TransDBSchema.get_categorical_cols():
@@ -520,7 +534,7 @@ def _trans_table_callback_trigger(data: List[dict],
             _apply_changes_to_trans_db_cat_col(change, all_trans=False,
                                                col=change['column_name'])
 
-    return to_open_modal
+    return to_open_modal, row_del_cnf_diag
 
 
 def _cat_change_modal_callback_trigger(data: List[dict],
@@ -572,10 +586,9 @@ def _add_split(n_clicks, children):
 
 
 @dash.callback(
-    Output(TransIDs.TRANS_TBL_NEW_DATA_DIV, 'children').
+    Output(TransIDs.TRANS_TBL_DIV, 'children'),
     Output('split_tbl_div', 'children'),
-    Output(TransIDs.SPLIT_ALERT, 'hide'),
-    Output(TransIDs.SPLIT_ALERT, 'children'),
+    Output(TransIDs.SPLIT_NOTIF, 'children'),
     Input(TransIDs.APPLY_SPLIT_BTN, 'n_clicks'),
     State(TransIDs.SPLIT_TBL, 'derived_virtual_data'),
     State(TransIDs.SPLIT_TBL, 'derived_virtual_selected_rows'),
@@ -593,44 +606,56 @@ def _apply_splits_callback(n_clicks,
                            split_memos: List[str],
                            split_cats: List[str]):
     if selected_row_original is None:
-        return dash.no_update, dash.no_update,  False, "No transaction selected"
+        return \
+            dash.no_update,\
+            dash.no_update, \
+            _create_split_fail("No transaction selected")
 
     row = TRANS_DB.iloc[selected_row_original[0]]
     row_id = row[TransDBSchema.ID]
     row_amount = row[TransDBSchema.AMOUNT]
 
+    # validate split amounts
     split_amounts = [float(s) for s in split_amounts if s != '' and s != 0]
     split_amount = sum(split_amounts)
     if split_amount != row_amount:
-        return dash.no_update, dash.no_update, False, \
-            f"Split amount must equal original amount ({row_amount})"
+        return \
+            dash.no_update, \
+            dash.no_update, \
+            _create_split_fail(f"Split amount must equal original amount "
+                               f"({row_amount})")
 
     new_rows = TRANS_DB.apply_split(row_id, split_amounts, split_memos,
                                     split_cats)
 
-    # update split tbl
-    split_tbl_cols = list(filtered_data[0].keys())
-    records = pd.concat(new_rows)[split_tbl_cols].to_dict('records')
-    for rec in records:
-        filtered_data.insert(selected_row_filtered[0], rec)
-    return [_create_main_trans_table()], \
-        [_create_split_trans_table(records=filtered_data)], True, ''
+    table = _create_new_split_table(filtered_data, new_rows,
+                                    selected_row_filtered)
 
-    # todo update TRANS_TBL and SPLIT_TBL
-    #   split_tbl - works, need to remove original row and format the new rows (make sure that the table
-    #      is not too convoluted)
-    #   trans_tbl - have the table inside a div and a callback that updates the div
-    #       with a new table. the callback will be triggered by an invisible component that will get the
-    #      new table data as an input. the callback will be the only place where the div is updated.
+    return \
+        [_create_main_trans_table()],\
+        [_create_split_trans_table(table=table)], \
+        _create_split_success('Transaction split successfully')
+
+
+def _create_new_split_table(filtered_data, new_rows, selected_row_filtered):
+    split_tbl_cols = list(filtered_data[0].keys())
+    new_rows_df = pd.concat(new_rows)[split_tbl_cols]
+    table = pd.DataFrame.from_records(filtered_data)
+    table.date = pd.to_datetime(table.date)
+    table.drop(index=selected_row_filtered[0], inplace=True)
+    table = table.append(new_rows_df, ignore_index=True).sort_values(
+        TransDBSchema.DATE, ascending=False)
+    return table
+
 
 @dash.callback(
     Output(TransIDs.TRANS_TBL, 'data'),
     Output(TransIDs.MODAL_CAT_CHANGE, 'opened'),
+    Output(TransIDs.ROW_DEL_CONFIRM_DIALOG, 'displayed'),
     Input(TransIDs.CAT_PICKER, 'value'),
     Input(TransIDs.GROUP_PICKER, 'value'),
     Input(TransIDs.ACC_PICKER, 'value'),
-    Input(TransIDs.DATE_PICKER, 'start_date'),
-    Input(TransIDs.DATE_PICKER, 'end_date'),
+    Input(TransIDs.DATE_PICKER, 'value'),
     Input(TransIDs.ADD_ROW_BTN, 'n_clicks'),
     State(TransIDs.TRANS_TBL, 'data'),
     State(TransIDs.TRANS_TBL, 'columns'),
@@ -644,8 +669,7 @@ def _apply_splits_callback(n_clicks,
 def _update_table_callback(cat: str,
                            group: str,
                            account: str,
-                           start_date: str,
-                           end_date: str,
+                           date_values: List[str],
                            n_clicks: int,
                            rows: list,
                            columns: list,
@@ -653,7 +677,7 @@ def _update_table_callback(cat: str,
                            data_prev: list,
                            yes_clicks: int,
                            no_clicks: int,
-                           opened: bool) -> Tuple[list, bool]:
+                           opened: bool):
     """
     This is the main callback for updating the table since each id can only
     have one callback that uses it as output. This function calls helper
@@ -672,20 +696,28 @@ def _update_table_callback(cat: str,
     :param opened: property of change cat modal - if it is opened
     :return: changes to table data and if the change cat modal should be opened
     """
+    if data is None or data_prev is None:
+        raise PreventUpdate
+
     to_open_modal = False
+    row_del_cnf_diag = False
     if dash.callback_context.triggered_id == TransIDs.ADD_ROW_BTN:
-        return _add_row(n_clicks, rows, columns), to_open_modal
+        return \
+            _add_row(n_clicks, rows, columns), \
+            dash.no_update, \
+            dash.no_update
 
     elif dash.callback_context.triggered_id in [TransIDs.CAT_PICKER,
                                                 TransIDs.GROUP_PICKER,
                                                 TransIDs.ACC_PICKER,
-                                                TransIDs.DATE_PICKER,
                                                 TransIDs.DATE_PICKER]:
-        return _filter_table(cat, group, account, start_date, end_date), \
-               to_open_modal
+        return \
+            _filter_table(cat, group, account, date_values), \
+            dash.no_update, \
+            dash.no_update
 
     elif dash.callback_context.triggered_id == TransIDs.TRANS_TBL:
-        to_open_modal = _trans_table_callback_trigger(data, data_prev)
+        to_open_modal, row_del_cnf_diag = _trans_table_callback_trigger(data, data_prev)
 
     elif dash.callback_context.triggered_id in [TransIDs.MODAL_CAT_CHANGE_YES,
                                                 TransIDs.MODAL_CAT_CHANGE_NO]:
@@ -693,13 +725,13 @@ def _update_table_callback(cat: str,
     else:
         raise ValueError('Unknown trigger')
 
-    return TRANS_DB.get_records(), to_open_modal
+    return TRANS_DB.get_records(), to_open_modal, row_del_cnf_diag
 
 
 def _filter_table(cat: str,
                   group: str,
                   account: str,
-                  start_date: str, end_date: str):
+                  date_values: List[str]):
     """
     Filters the table based on the chosen filters
     :return: dict of filtered df
@@ -719,8 +751,8 @@ def _filter_table(cat: str,
 
     cat_cond = create_conditional_filter(TransDBSchema.CAT, cat)
     account_cond = create_conditional_filter(TransDBSchema.ACCOUNT, account)
-    date_cond = create_date_cond_filter(TransDBSchema.DATE, start_date,
-                                        end_date)
+    date_cond = create_date_cond_filter(TransDBSchema.DATE, date_values[0],
+                                        date_values[1])
     group_cond = create_conditional_filter(TransDBSchema.CAT_GROUP, group)
 
     table = TRANS_DB[(cat_cond) &

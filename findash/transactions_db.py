@@ -356,7 +356,6 @@ class TransactionsDBParquet:
         monthly_trans = self.get_trans_by_month(year, month)
         self.specific_month = TransactionsDBParquet(self._cat_db, monthly_trans)
 
-
     def _get_months_from_uuid(self, uuid_lst: List[str]) -> List[
         Tuple[str, str]]:
         """
@@ -382,6 +381,34 @@ class TransactionsDBParquet:
         group = self._cat_db.get_group_of_category(new_value)
         self.update_data(TransDBSchema.CAT_GROUP, index, group)
 
+    def _create_new_split_row(self,
+                              row_to_split: pd.Series,
+                              amount: str,
+                              cat: str,
+                              memo: str,
+                              split_ind: int,
+                              next_split: int) -> pd.Series:
+        new_split = row_to_split.copy()
+        new_split[TransDBSchema.AMOUNT] = amount
+
+        if new_split[TransDBSchema.OUTFLOW].iloc[0] > 0:
+            new_split[TransDBSchema.OUTFLOW] = amount
+        else:
+            new_split[TransDBSchema.INFLOW] = amount
+
+        new_split[
+            TransDBSchema.PAYEE] = f'[{split_ind}] {new_split[TransDBSchema.PAYEE].iloc[0]}'
+        new_split[TransDBSchema.ID] = create_uuid()
+        new_split.index = [len(self._db)]
+
+        new_split[TransDBSchema.CAT] = cat
+        new_split[
+            TransDBSchema.CAT_GROUP] = self._cat_db.get_group_of_category(cat)
+        new_split[TransDBSchema.MEMO] = memo
+        new_split[TransDBSchema.SPLIT] = f'{next_split}-{split_ind + 1}'
+
+        return new_split
+
     def apply_split(self,
                     row_id: str,
                     split_amounts,
@@ -402,26 +429,13 @@ class TransactionsDBParquet:
 
         rows = []
         for split_ind, (amount, cat, memo) in enumerate(zip(split_amounts, split_cats, split_memos)):
-            new_split = split_row.copy()
-            new_split[TransDBSchema.AMOUNT] = amount
-
-            if new_split[TransDBSchema.OUTFLOW].iloc[0] > 0:
-                new_split[TransDBSchema.OUTFLOW] = amount
-            else:
-                new_split[TransDBSchema.INFLOW] = amount
-
-            new_split[TransDBSchema.ID] = create_uuid()
-
-            new_split[TransDBSchema.CAT] = cat
-            new_split[TransDBSchema.CAT_GROUP] = self._cat_db.get_group_of_category(cat)
-            new_split[TransDBSchema.MEMO] = memo
-            new_split[TransDBSchema.SPLIT] = f'{next_split}-{split_ind + 1}'
-            self._db = pd.concat([self._db, new_split])
-            rows.append(new_split)
+            new_split_row = self._create_new_split_row(split_row, amount, cat, memo, split_ind, next_split)
+            self._db = pd.concat([self._db, new_split_row])
+            rows.append(new_split_row)
 
         self._db.drop(index=split_row.index, inplace=True)
         self._sort_db()
-        # self.save_db_from_uuids(ids)
+        self.save_db_from_uuids([row[TransDBSchema.ID].iloc[0] for row in rows])
         return rows
 
     @staticmethod
@@ -429,7 +443,7 @@ class TransactionsDBParquet:
         if len(col) == 0:
             return 1
         col_copy = col.copy().to_frame()
-        col_copy['s1'] = col_copy.iloc[0, :].str.split('-').str[0]
+        col_copy['s1'] = col_copy.iloc[0, :].str.split('-').str[0].iloc[0]
         return col_copy['s1'].astype(int).sort_values().iloc[-1] + 1
 
     def get_data_by_group(self, group: str):
