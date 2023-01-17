@@ -32,10 +32,10 @@ class Change:
     PREV_VALUE = 'prev_value'
     CHANGE_TYPE = 'change_type'
 
-    row_ind: int
-    col_name: str
-    current_value: str
-    prev_value: str
+    row_ind: Optional[int]
+    col_name: Optional[str]
+    current_value: Optional[str]
+    prev_value: Optional[str]
     change_type: ChangeType
 # todo change literal strings in code with the constants above
 
@@ -178,10 +178,20 @@ def get_change_type(df: pd.DataFrame, df_prev: pd.DataFrame):
     return change_type
 
 
+def get_add_row_change_obj():
+    return Change(
+            row_ind=None,
+            col_name=None,
+            prev_value=None,
+            current_value=None,
+            change_type=ChangeType.ADD_ROW
+        )
+
+
 def detect_changes_in_table(df: pd.DataFrame,
                             df_previous: pd.DataFrame,
                             row_id_name: Optional[str] = None) \
-        -> Optional[Tuple[List[Change], ChangeType]]:
+        -> Optional[List[Change]]:
     """
      Modified from: https://community.plotly.com/t/detecting-changed-cell-in-editable-datatable/26219/2
     :param df:

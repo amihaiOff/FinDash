@@ -1,4 +1,5 @@
 from dataclasses import dataclass, fields
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Optional, Union
 
@@ -6,7 +7,9 @@ import pandas as pd
 
 from categories_db import CategoriesDB
 from utils import SETTINGS, create_uuid, format_date_col_for_display, \
-    set_cat_col_categories, check_null, get_current_year_and_month
+    set_cat_col_categories, check_null, get_current_year_and_month, Change, \
+    ChangeType
+from change_list import ChangeList
 
 """
 The purpose of this module is to provide a database for transactions.
@@ -123,6 +126,7 @@ class TransactionsDBParquet:
         self._db: pd.DataFrame = db
         self._cat_db = cat_db
         self.specific_month = None
+        self.change_list = ChangeList()
 
     def __getitem__(self, item):
         return TransactionsDBParquet(self._cat_db, self._db.__getitem__(item))
@@ -173,8 +177,8 @@ class TransactionsDBParquet:
         self._db = final_df
 
         # todo remove
-        if TransDBSchema.SPLIT not in self._db.columns:
-            self._db[TransDBSchema.SPLIT] = None
+        # if TransDBSchema.SPLIT not in self._db.columns:
+        #     self._db[TransDBSchema.SPLIT] = None
 
         self._sort_db()
 
@@ -282,7 +286,7 @@ class TransactionsDBParquet:
 
         return df
 
-    def add_new_row(self, date: str) -> None:
+    def add_new_row(self) -> None:
         """
         when adding a new transaction, add a blank row to the db which will
         probably be edited and populated later
@@ -292,6 +296,7 @@ class TransactionsDBParquet:
         new_row = pd.DataFrame([[None] * self._db.shape[1]],
                                columns=self._db.columns)
         new_row[TransDBSchema.ID] = uuid
+        date = datetime.now().strftime('%Y-%m-%d')
         new_row[TransDBSchema.DATE] = pd.to_datetime(date)
         new_row[TransDBSchema.ACCOUNT] = ''
 
@@ -327,9 +332,18 @@ class TransactionsDBParquet:
             self._cat_db.update_payee_to_cat_mapping(payee, cat=value)
 
         self._update_cat_group(index, value)
-        self.update_data(col_name, index, value)
+        self._update_data(col_name, index, value)
 
-    def update_data(self, col_name: str, index: int, value: Any) -> None:
+    def submit_change(self, change: Change):
+        if change.col_name == TransDBSchema.CAT:
+            self.update_cat_col_data(change.col_name, change.row_ind,
+                                     change.current_value)
+        if change.change_type == ChangeType.ADD_ROW:
+            self.add_new_row()
+        self._update_data(change.col_name, change.row_ind, change.current_value)
+        self.change_list.append(change)
+
+    def _update_data(self, col_name: str, index: int, value: Any) -> None:
         """
         update a specific cell in the db
         :param col_name:
@@ -379,7 +393,7 @@ class TransactionsDBParquet:
         update the category group of a transaction
         """
         group = self._cat_db.get_group_of_category(new_value)
-        self.update_data(TransDBSchema.CAT_GROUP, index, group)
+        self._update_data(TransDBSchema.CAT_GROUP, index, group)
 
     def _create_new_split_row(self,
                               row_to_split: pd.Series,
