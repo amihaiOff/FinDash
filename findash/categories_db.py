@@ -131,3 +131,11 @@ class CategoriesDB:
     def get_group_budget(self, group_name: str) -> pd.DataFrame:
         return self._db[self._db[CatDBSchema.CAT_GROUP] == group_name]
 
+
+def _get_group_and_cat_for_dropdown(cat_db):
+    options = []
+    for name, group in cat_db.get_groups_as_groupby():
+        options.extend(
+            [{'label': f'{name}: {cat}', 'value': f'{cat}'} for cat in
+             group[CatDBSchema.CAT_NAME]])
+    return options

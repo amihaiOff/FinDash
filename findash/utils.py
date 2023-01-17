@@ -4,7 +4,7 @@ import uuid
 import numpy as np
 import pandas as pd
 import yaml
-from typing import Any, Dict, Tuple, Optional
+from typing import Any, Dict, Tuple
 from dash import html
 
 
@@ -131,4 +131,3 @@ def create_table(df: pd.DataFrame):
     rows = [html.Tr([html.Td(cell) for cell in row]) for row in values]
     table = [html.Thead(header), html.Tbody(rows)]
     return table
-
