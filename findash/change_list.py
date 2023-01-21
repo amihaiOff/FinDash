@@ -17,34 +17,34 @@ class ChangeList:
         last_change = self._done_queue.pop()
         reversed_change = self._reverse_change(last_change)
         self._undo_queue.append(reversed_change)
+        return reversed_change
 
     def redo(self):
         last_change = self._undo_queue.pop()
         reversed_change = self._reverse_change(last_change)
         self._done_queue.append(reversed_change)
+        return reversed_change
 
     def _reverse_change(self, change: Change):
+        """
+        Reverse a change when moving between done and undo queues.
+        :param change:
+        :return:
+        """
         if change.change_type == ChangeType.CHANGE_DATA:
             change.current_value, change.prev_value = change.prev_value,\
                 change.current_value
         elif change.change_type == ChangeType.ADD_ROW:
-            pass
+            change.change_type = ChangeType.DELETE_ROW
         elif change.change_type == ChangeType.DELETE_ROW:
-            pass
+            change.current_value, change.prev_value = change.prev_value, \
+                change.current_value
+            change.change_type = ChangeType.ADD_ROW
 
         return change
-        # change according to change type
-        # if change data - flip the current and prev data
-        # if remove row - ideally the current data will be empty and
-        # old data will be the row removed
-        # if add row - current data will be the new row and prev data will be
-        # empty
 
     def save_change_list(self):
         pass
 
     def load_change_list(self):
         pass
-
-
-

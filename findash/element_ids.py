@@ -6,7 +6,7 @@ class TransIDs:
     GROUP_PICKER = 'group_picker'
     DATE_PICKER = 'date_picker'
     ADD_ROW_BTN = 'add_row_btn'
-    PLACEDHOLDER = 'placeholder'
+    ROW_DEL_PLACEDHOLDER = 'row_del_placeholder'
     MODAL_CAT_CHANGE = 'modal_cat_change'
     MODAL_CAT_CHANGE_YES = 'modal_cat_change_yes'
     MODAL_CAT_CHANGE_NO = 'modal_cat_change_no'
@@ -26,6 +26,7 @@ class TransIDs:
     SPLIT_TBL = 'split_tbl'
     SPLIT_NOTIF = 'split_notif'
     ROW_DEL_CONFIRM_DIALOG = 'row_del_confirm_dialog'
+    CHANGE_STORE = 'change_store'
 
 
 class MonthlyIDs:

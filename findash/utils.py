@@ -1,6 +1,6 @@
 import datetime
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from enum import Enum, auto
 
 import numpy as np
@@ -19,9 +19,12 @@ SHEKEL_SYM = '₪'
 
 
 class ChangeType(Enum):
-    CHANGE_DATA = auto()
-    ADD_ROW = auto()
-    DELETE_ROW = auto()
+    CHANGE_DATA = 'change_data'
+    ADD_ROW = 'add_row'
+    DELETE_ROW = 'delete_row'
+
+    def __str__(self):
+        return self.value
 
 
 @dataclass
@@ -49,6 +52,30 @@ class Change:
         if val is None:
             raise ValueError(f'Change object has no attribute {item}')
         return val
+
+    def to_json(self):
+        curr_val = self.current_value.to_json() if isinstance(self.current_value, pd.Series) else self.current_value
+        prev_val = self.prev_value.to_json() if isinstance(self.prev_value, pd.Series) else self.current_value
+        return {
+            self.ROW_IND: self.row_ind,
+            self.COL_NAME: self.col_name,
+            self.CHANGE_TYPE: str(self.change_type),
+            self.CURRENT_VALUE: curr_val,
+            self.PREV_VALUE: prev_val
+        }
+
+    @classmethod
+    def from_dict(cls, change_dict: dict):
+        curr_val, prev_val = change_dict[cls.CURRENT_VALUE], change_dict[cls.PREV_VALUE]
+        curr_val = change_dict[cls.CURRENT_VALUE] if not isinstance(curr_val, dict) else pd.Series(curr_val)
+        prev_val = change_dict[cls.PREV_VALUE] if not isinstance(prev_val, dict) else pd.Series(prev_val)
+        return cls(
+            row_ind=change_dict[cls.ROW_IND],
+            col_name=change_dict[cls.COL_NAME],
+            change_type=ChangeType(change_dict[cls.CHANGE_TYPE]),
+            prev_value=prev_val,
+            current_value=curr_val
+        )
 
 
 class MappingDict(dict):
@@ -188,6 +215,20 @@ def get_add_row_change_obj():
         )
 
 
+def _get_removed_row(df: pd.DataFrame, df_prev: pd.DataFrame):
+    m = df_prev.merge(df.drop_duplicates(), on=list(df.columns), how='left',
+                      indicator=True)
+    left_only = m['_merge'] == 'left_only'
+    if left_only.sum() == 0:
+        if df.duplicated().sum() < df_prev.duplicated().sum():
+            return df_prev[df_prev.duplicated()].iloc[0]
+        else:
+            raise ValueError('Removed row undetected')
+    elif left_only.sum() > 1:
+        raise ValueError('More than one row detected as removed')
+    return df_prev[left_only].iloc[0]  # using iloc to get back a series
+
+
 def detect_changes_in_table(df: pd.DataFrame,
                             df_previous: pd.DataFrame,
                             row_id_name: Optional[str] = None) \
@@ -201,12 +242,22 @@ def detect_changes_in_table(df: pd.DataFrame,
     """
 
     change_type = get_change_type(df, df_previous)
-    if row_id_name is not None:
-       # If using something other than the index for row id's, set it here
-       for _df in [df, df_previous]:
-           _df = _df.set_index(row_id_name)
-    else:
-       row_id_name = "index"
+    if change_type == ChangeType.DELETE_ROW:
+        removed_row = _get_removed_row(df, df_previous)
+        return [Change(
+            row_ind=removed_row.name,
+            col_name=None,
+            current_value=None,
+            prev_value=removed_row,
+            change_type=change_type
+        )]
+
+    # if row_id_name is not None:
+    #    # If using something other than the index for row id's, set it here
+    #    for _df in [df, df_previous]:
+    #        _df = _df.set_index(row_id_name)
+    # else:
+    #    row_id_name = "index"
 
     # Pandas/Numpy says NaN != NaN, so we cannot simply compare the dataframes.  Instead we can either replace the
     # NaNs with some unique value (which is fastest for very small arrays, but doesn't scale well) or we can do

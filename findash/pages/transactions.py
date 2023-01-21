@@ -73,7 +73,8 @@ def _create_layout():
         dcc.ConfirmDialog(id=TransIDs.ROW_DEL_CONFIRM_DIALOG,
                           displayed=False,
                           message='Are you sure you want to delete this row?'),
-        html.Div(id=TransIDs.PLACEDHOLDER,
+        dcc.Store(id=TransIDs.CHANGE_STORE),
+        html.Div(id=TransIDs.ROW_DEL_PLACEDHOLDER,
                  style={'display': 'none'}),
         dbc.Row([
             dbc.Col([
@@ -101,9 +102,3 @@ def _create_layout():
 
 
 layout = _create_layout
-
-
-"""
-Callbacks
-"""
-

@@ -335,13 +335,27 @@ class TransactionsDBParquet:
         self._update_data(col_name, index, value)
 
     def submit_change(self, change: Change):
-        if change.col_name == TransDBSchema.CAT:
-            self.update_cat_col_data(change.col_name, change.row_ind,
-                                     change.current_value)
         if change.change_type == ChangeType.ADD_ROW:
             self.add_new_row()
-        self._update_data(change.col_name, change.row_ind, change.current_value)
+
+        elif change.change_type == ChangeType.DELETE_ROW:
+            row_id = self._db.loc[change.row_ind, TransDBSchema.ID]
+            self.remove_row_with_id(row_id)
+
+        elif change.change_type == ChangeType.CHANGE_DATA:
+            if change.col_name == TransDBSchema.CAT:
+                self.update_cat_col_data(change.col_name, change.row_ind,
+                                         change.current_value)
+            else:
+                self._update_data(change.col_name, change.row_ind, change.current_value)
+
         self.change_list.append(change)
+
+    def undo(self):
+        pass
+
+    def redo(self):
+        pass
 
     def _update_data(self, col_name: str, index: int, value: Any) -> None:
         """
@@ -499,16 +513,6 @@ class TransactionsDBParquet:
             db_tmp = db_tmp[db_tmp[col] == val]
 
         return db_tmp
-
-    # def get_current_month_trans(self):
-    #     """
-    #     get data of current month
-    #     :return: dataframe of data
-    #     """
-    #     current_month = datetime.now().strftime('%Y-%m')
-    #     curr_trans = self._db[self._db[TransDBSchema.DATE].dt.strftime('%Y-%m')
-    #                           == current_month]
-    #     return TransactionsDBParquet(self._cat_db, curr_trans)
 
     def get_trans_by_month(self, year: str, month: str) -> pd.DataFrame:
         """
