@@ -158,14 +158,14 @@ def _create_add_row_split_buttons() -> Tuple[dbc.Col, dbc.Col]:
     return add_row_btn, split_btn
 
 
-def _create_trans_table(id: str,
-                        table: pd.DataFrame,
-                        row_selectable: Union[str, bool, float] = False,
-                        rows_deletable: bool = True,
-                        filter_action: str = 'none',
-                        subset_cols: Optional[List[str]] = None,
-                        export_format: str = 'xlsx',
-                        editable: bool = True) -> dash_table.DataTable:
+def create_trans_table(id: str,
+                       table: pd.DataFrame,
+                       row_selectable: Union[str, bool, float] = False,
+                       rows_deletable: bool = True,
+                       filter_action: str = 'none',
+                       subset_cols: Optional[List[str]] = None,
+                       export_format: str = 'xlsx',
+                       editable: bool = True) -> dash_table.DataTable:
     """
     Creates the transaction table
     :param row_selectable: Whether the table rows are selectable,
@@ -234,6 +234,6 @@ def _create_main_trans_table() -> dash_table.DataTable:
     col_subset = [TransDBSchema.DATE, TransDBSchema.PAYEE, TransDBSchema.INFLOW,
                  TransDBSchema.OUTFLOW, TransDBSchema.CAT, TransDBSchema.MEMO,
                  TransDBSchema.ACCOUNT]
-    return _create_trans_table(id=TransIDs.TRANS_TBL,
-                               table=TRANS_DB,
-                               subset_cols=col_subset)
+    return create_trans_table(id=TransIDs.TRANS_TBL,
+                              table=TRANS_DB,
+                              subset_cols=col_subset)

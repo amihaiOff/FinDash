@@ -48,8 +48,8 @@ class Change:
         attr_vals = [self.row_ind, self.col_name, self.current_value,
                      self.prev_value]
         attr_dict = dict(zip(attr_names, attr_vals))
-        val = attr_dict.get(item)
-        if val is None:
+        val = attr_dict.get(item, 'null')  # cannot use None since this might be the value of the field
+        if val is 'null':
             raise ValueError(f'Change object has no attribute {item}')
         return val
 

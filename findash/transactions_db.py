@@ -147,6 +147,12 @@ class TransactionsDBParquet:
     def __le__(self, other):
         return self._db.__le__(other)
 
+    def __lt__(self, other):
+        return self._db.__lt__(other)
+
+    def __gt__(self, other):
+        return self.__ge__(other)
+
     def __repr__(self):
         return self._db.__repr__()
 
@@ -316,6 +322,7 @@ class TransactionsDBParquet:
         """
         months = self._get_months_from_uuid([id])
         self._db = self._db[self._db[TransDBSchema.ID] != id]
+        self._sort_db()
         self.save_db(months)
 
     def update_cat_col_data(self, col_name: str, index: int, value: Any):

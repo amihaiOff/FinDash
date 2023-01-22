@@ -21,7 +21,7 @@ from categories_db import _get_group_and_cat_for_dropdown
 from transactions_importer import import_file
 from page_elements.transactions_split_window import create_split_trans_modal
 from page_elements.transactions_layout_creators import _create_file_uploader, \
-    _create_category_change_modal, _create_trans_table, _create_add_row_split_buttons, \
+    _create_category_change_modal, create_trans_table, _create_add_row_split_buttons, \
     _create_main_trans_table
 from page_elements.transactions_callbacks import *
 
@@ -69,7 +69,7 @@ date_picker = dbc.Card([
 def _create_layout():
     return dbc.Container([
         cat_change_modal := _create_category_change_modal(),
-        split_trans_modal := create_split_trans_modal(_create_trans_table),
+        split_trans_modal := create_split_trans_modal(create_trans_table),
         dcc.ConfirmDialog(id=TransIDs.ROW_DEL_CONFIRM_DIALOG,
                           displayed=False,
                           message='Are you sure you want to delete this row?'),
