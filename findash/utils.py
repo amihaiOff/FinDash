@@ -6,16 +6,49 @@ from enum import Enum, auto
 import numpy as np
 import pandas as pd
 import yaml
-from typing import Any, Dict, Tuple, Optional, List
+from typing import Any, Dict, Tuple, Optional, List, Callable
 from dash import html
 
 
-def get_settings() -> Dict[str, Any]:
-    return yaml.safe_load(open('settings.yaml'))
-
-
-SETTINGS = get_settings()
 SHEKEL_SYM = '₪'
+
+
+class Settings:
+    def __init__(self):
+        self._settings = self.load_settings()
+        self._vault_name = self._settings['user']['vault_name']
+
+    def load_settings(self) -> Dict[str, Any]:
+        return yaml.safe_load(open('settings.yaml'))
+
+    def _add_path_prefix(self, db_asset_path: str):
+        path_to_vault = self._settings['dbs']['path_to_vault']
+        path_prefix = f'{path_to_vault}/{self._vault_name}'
+        return f'{path_prefix}/{db_asset_path}'
+
+    @property
+    def trans_db_path(self) -> str:
+        return self._add_path_prefix(self._settings['dbs']['trans_db_path'])
+
+    @property
+    def cat_db_path(self):
+        return self._add_path_prefix(self._settings['dbs']['cat_db_path'])
+
+    @property
+    def payee2cat_db_path(self) -> str:
+        return self._add_path_prefix(self._settings['dbs']['payee2cat_db_path'])
+
+    @property
+    def cat2payee_db_path(self):
+        return self._add_path_prefix(self._settings['dbs']['cat2payee_db_path'])
+
+    @property
+    def auto_cat_db_path(self):
+        return self._add_path_prefix(self._settings['dbs']['auto_cat_db_path'])
+
+    @property
+    def accounts_path(self):
+        return self._add_path_prefix(self._settings['dbs']['accounts'])
 
 
 class ChangeType(Enum):
@@ -282,7 +315,5 @@ def detect_changes_in_table(df: pd.DataFrame,
                        prev_value=df_previous.at[row_id, change[0]],
                        change_type=change_type)
             )
-            # todo when deleting\adding row the current\prev data need to be
-            #   the whole deleted\added row
 
     return changes

@@ -204,7 +204,7 @@ def init_accounts():
     in trans table dropdown.
     :return:
     """
-    accounts_yaml = yaml.safe_load(open(SETTINGS['db']['accounts']))
+    accounts_yaml = yaml.safe_load(open(SETTINGS.accounts_path))
     for name, settings in accounts_yaml.items():
         cls = accounts_register[settings['institution']]
         acc = cls(name)
@@ -218,7 +218,7 @@ def init_account_by_name(acc_key: str) -> Account:
     :param acc_key:
     :return:
     """
-    accounts_yaml = yaml.safe_load(open(SETTINGS['db']['accounts']))
+    accounts_yaml = yaml.safe_load(open(SETTINGS.accounts_path))
     account = accounts_yaml[acc_key]
     cls = accounts_register[account['institution']]
     acc = cls(acc_key)

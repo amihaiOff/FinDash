@@ -200,7 +200,7 @@ class TransactionsDBParquet:
         # if len(months_to_save) == 0:
         #     self._save_no_date_db()
 
-        trans_db_path = Path(SETTINGS['db']['trans_db_path'])
+        trans_db_path = Path(SETTINGS.trans_db_path)
         for year, month in months_to_save:
             year_dir = trans_db_path / str(year)
             if not year_dir.exists():

@@ -29,26 +29,26 @@ class CategoriesDB:
         load the categoeies db and the payee2cat and cat2payee dbs
         :return:
         """
-        self._db = pd.read_parquet(SETTINGS['db']['cat_db_path'])
+        self._db = pd.read_parquet(SETTINGS.cat_db_path)
 
-        if Path(SETTINGS['db']['payee2cat_db_path']).exists():
-            with open(SETTINGS['db']['payee2cat_db_path'], 'r') as f:
+        if Path(SETTINGS.payee2cat_db_path).exists():
+            with open(SETTINGS.payee2cat_db_path, 'r') as f:
                 self._payee2cat = json.load(f)
         else:
             self._payee2cat = {}
 
-        if Path(SETTINGS['db']['cat2payee_db_path']).exists():
-            with open(SETTINGS['db']['cat2payee_db_path'], 'r') as f:
+        if Path(SETTINGS.cat2payee_db_path).exists():
+            with open(SETTINGS.cat2payee_db_path, 'r') as f:
                 self._cat2payee = json.load(f)
         else:
             self._cat2payee = {}
 
     def _save_payee2cat(self):
-        with open(SETTINGS['db']['payee2cat_db_path'], 'w') as f:
+        with open(SETTINGS.payee2cat_db_path, 'w') as f:
             json.dump(self._payee2cat, f, indent=4, ensure_ascii=False)
 
     def _save_cat2payee(self):
-        with open(SETTINGS['db']['cat2payee_db_path'], 'w') as f:
+        with open(SETTINGS.cat2payee_db_path, 'w') as f:
             json.dump(self._cat2payee, f, indent=4, ensure_ascii=False)
 
     def _save_cat_db(self, db_path):
@@ -59,18 +59,18 @@ class CategoriesDB:
             self._db = self._db.append(
                 {CatDBSchema.CAT_NAME: category_name},
                 ignore_index=True)
-            self._save_cat_db(SETTINGS['cat_db_path'])
+            self._save_cat_db(SETTINGS.cat_db_path)
 
     def delete_category(self, category_name: str) -> None:
         self._db = self._db[
             self._db[CatDBSchema.CAT_NAME] != category_name]
-        self._save_cat_db(SETTINGS['cat_db_path'])
+        self._save_cat_db(SETTINGS.cat_db_path)
 
     def update_category_budget(self, category_name: str,
                                budget: float) -> None:
         self._db[self._db[CatDBSchema.CAT_NAME] == category_name][
             CatDBSchema.BUDGET] = budget
-        self._save_cat_db(SETTINGS['cat_db_path'])
+        self._save_cat_db(SETTINGS.cat_db_path)
 
     def delete_category_budget(self, category_name: str) -> None:
         self._db[self._db[CatDBSchema.CAT_NAME] == category_name][
