@@ -340,8 +340,12 @@ def _create_layout():
            dbc.Col(_create_notif_card(), width=4)]),
         html.Br(),
         dbc.Row([
-            dmc.Drawer(id=MonthlyIDs.TRANS_DRAWER, size='50%',
-                       style={'overflowY': 'auto', 'height': '100%'}),
+            html.Div(
+                dmc.Drawer(id=MonthlyIDs.TRANS_DRAWER, size='70%',
+                           style={'overflowY': 'auto', 'height': '100%', 'margin-left':'100px'},
+                           sx={'margin-left': '5rem'}),
+                style={'margin-left': '100px'}
+            ),
             dmc.AccordionMultiple(
                 children=create_accordion_items())
         ])

@@ -4,8 +4,8 @@ from transactions_db import TransactionsDBParquet
 from categories_db import CategoriesDB
 
 from transactions_importer import import_file
-from utils import Settings
-from dummy_data import TransGenerator, generate_catdb
+from utils import SETTINGS
+from dummy_data import TransGenerator
 from accounts import init_accounts
 import dash_bootstrap_components as dbc
 from dash import Dash, html
@@ -140,7 +140,6 @@ def setup_pages_container(app):
         )
     ])
 
-SETTINGS = Settings()
 init_accounts()
 CAT_DB = setup_cat_db()
 

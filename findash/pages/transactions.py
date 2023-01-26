@@ -28,8 +28,6 @@ from page_elements.transactions_callbacks import *
 dash.register_page(__name__)
 
 
-
-
 # insert_file_modal = _create_insert_file_modal()
 
 category_picker = dbc.Card(

@@ -1,54 +1,70 @@
 import datetime
 import uuid
-from dataclasses import dataclass, asdict
-from enum import Enum, auto
+from dataclasses import dataclass
+from enum import Enum
 
 import numpy as np
 import pandas as pd
 import yaml
-from typing import Any, Dict, Tuple, Optional, List, Callable
+from typing import Any, Dict, Tuple, Optional, List
 from dash import html
 
 
 SHEKEL_SYM = '₪'
 
 
+class SK:
+    DB = 'db'
+    USER = 'user'
+    VAULT_NAME = 'vault_name'
+    PATH_TO_VAULTS = 'path_to_vaults'
+    TRANS_DB_PATH = 'trans_db_path'
+    CAT_DB_PATH = 'cat_db_path'
+    PAYEE2CAT_DB_PATH = 'payee2cat_db_path'
+    CAT2PAYEE_DB_PATH = 'cat2payee_db_path'
+    AUTO_CAT_DB_PATH = 'auto_cat_db_path'
+    ACCOUNTS = 'accounts'
+
+
 class Settings:
     def __init__(self):
         self._settings = self.load_settings()
-        self._vault_name = self._settings['user']['vault_name']
+        self._vault_name = self._settings[SK.USER][SK.VAULT_NAME]
 
     def load_settings(self) -> Dict[str, Any]:
         return yaml.safe_load(open('settings.yaml'))
 
     def _add_path_prefix(self, db_asset_path: str):
-        path_to_vault = self._settings['dbs']['path_to_vault']
+        path_to_vault = self._settings[SK.DB][SK.PATH_TO_VAULTS]
         path_prefix = f'{path_to_vault}/{self._vault_name}'
         return f'{path_prefix}/{db_asset_path}'
 
     @property
     def trans_db_path(self) -> str:
-        return self._add_path_prefix(self._settings['dbs']['trans_db_path'])
+        return self._add_path_prefix(self._settings[SK.DB][SK.TRANS_DB_PATH])
 
     @property
     def cat_db_path(self):
-        return self._add_path_prefix(self._settings['dbs']['cat_db_path'])
+        return self._add_path_prefix(self._settings[SK.DB][SK.CAT_DB_PATH])
 
     @property
     def payee2cat_db_path(self) -> str:
-        return self._add_path_prefix(self._settings['dbs']['payee2cat_db_path'])
+        return self._add_path_prefix(self._settings[SK.DB][SK.PAYEE2CAT_DB_PATH])
 
     @property
     def cat2payee_db_path(self):
-        return self._add_path_prefix(self._settings['dbs']['cat2payee_db_path'])
+        return self._add_path_prefix(self._settings[SK.DB][SK.CAT2PAYEE_DB_PATH])
 
     @property
     def auto_cat_db_path(self):
-        return self._add_path_prefix(self._settings['dbs']['auto_cat_db_path'])
+        return self._add_path_prefix(self._settings[SK.DB][SK.AUTO_CAT_DB_PATH])
 
     @property
     def accounts_path(self):
-        return self._add_path_prefix(self._settings['dbs']['accounts'])
+        return self._add_path_prefix(self._settings[SK.DB][SK.ACCOUNTS])
+
+
+SETTINGS = Settings()
 
 
 class ChangeType(Enum):
@@ -82,7 +98,7 @@ class Change:
                      self.prev_value]
         attr_dict = dict(zip(attr_names, attr_vals))
         val = attr_dict.get(item, 'null')  # cannot use None since this might be the value of the field
-        if val is 'null':
+        if val == 'null':
             raise ValueError(f'Change object has no attribute {item}')
         return val
 
