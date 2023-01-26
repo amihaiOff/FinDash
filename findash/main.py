@@ -75,7 +75,6 @@ def make_card(coin):
     )
 
 
-
 def _create_nav_bar():
     return html.Div(
         [

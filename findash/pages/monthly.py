@@ -344,7 +344,7 @@ def _create_layout():
                 dmc.Drawer(id=MonthlyIDs.TRANS_DRAWER, size='70%',
                            style={'overflowY': 'auto', 'height': '100%', 'margin-left':'100px'},
                            sx={'margin-left': '5rem'}),
-                style={'margin-left': '100px'}
+                className='test'
             ),
             dmc.AccordionMultiple(
                 children=create_accordion_items())
