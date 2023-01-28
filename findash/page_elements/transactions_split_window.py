@@ -118,11 +118,12 @@ def create_split_trans_modal(create_table_func: Callable) -> dmc.Modal:
                             'right': '400px'}
                      ),
             dmc.Grid([
-                dmc.Col([html.Div(table, id='split_tbl_div')],
+                dmc.Col([html.Div(table, id=TransIDs.SPLIT_TBL_DIV)],
                         style={'overflowY': 'auto'},
                         span=5),
                 dmc.Col([
-                    _create_split_input_card(1)
+                    _create_split_input_card(1),
+                    _create_split_input_card(2),
                 ],
                     id=TransIDs.SPLITS_COL,
                     span=6),

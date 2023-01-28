@@ -27,6 +27,7 @@ class TransIDs:
     SPLIT_NOTIF = 'split_notif'
     ROW_DEL_CONFIRM_DIALOG = 'row_del_confirm_dialog'
     CHANGE_STORE = 'change_store'
+    SPLIT_TBL_DIV = 'split_tbl_div'
 
 
 class MonthlyIDs:

@@ -167,11 +167,9 @@ class TransactionsDBParquet:
         pq_files = []
         for item in root_path.glob('*'):
             if item.is_dir():
-                for file in item.iterdir():
-                    pq_files.append(pd.read_parquet(file))
-            else:
-                if item.name.endswith('pq'):
-                    pq_files.append(pd.read_parquet(item))
+                pq_files.extend(pd.read_parquet(file) for file in item.iterdir())
+            elif item.name.endswith('pq'):
+                pq_files.append(pd.read_parquet(item))
 
         if len(pq_files) == 0:
             self._db = pd.DataFrame()
@@ -376,9 +374,11 @@ class TransactionsDBParquet:
         self._db.loc[index, col_name] = value
 
         # trans moved to another month - save original month to save removal
-        if isinstance(prev_value, pd.Timestamp):
-            if prev_value.month != pd.to_datetime(value).month:
-                self.save_db([(str(prev_value.year), str(prev_value.month))])
+        if (
+            isinstance(prev_value, pd.Timestamp)
+            and prev_value.month != pd.to_datetime(value).month
+        ):
+            self.save_db([(str(prev_value.year), str(prev_value.month))])
 
         uuid_list = [self._db.loc[index, TransDBSchema.ID]]
 
@@ -424,6 +424,7 @@ class TransactionsDBParquet:
                               split_ind: int,
                               next_split: int) -> pd.Series:
         new_split = row_to_split.copy()
+        amount = float(amount)
         new_split[TransDBSchema.AMOUNT] = amount
 
         if new_split[TransDBSchema.OUTFLOW].iloc[0] > 0:
@@ -446,9 +447,9 @@ class TransactionsDBParquet:
 
     def apply_split(self,
                     row_id: str,
-                    split_amounts,
-                    split_memos,
-                    split_cats) -> List[List[str]]:
+                    split_amounts: List[str],
+                    split_memos: List[str],
+                    split_cats: List[str]) -> List[pd.Series]:
         """
         Split a transaction into multiple categories
         :param row_id:
@@ -532,10 +533,9 @@ class TransactionsDBParquet:
             raise ValueError('year must be in 4 digit format and month must be'
                              ' in two digit format')
         target_date = f'{year}-{month}'
-        target_trans = self._db[self._db[TransDBSchema.DATE].dt.strftime(
-            '%Y-%m') == target_date]
-
-        return target_trans
+        return self._db[
+            self._db[TransDBSchema.DATE].dt.strftime('%Y-%m') == target_date
+        ]
 
     @staticmethod
     def _get_category_vals(df) -> Dict[str, pd.CategoricalDtype]:
@@ -544,11 +544,10 @@ class TransactionsDBParquet:
         :param df:
         :return:
         """
-        vals = {}
-        for col in TransDBSchema.get_categorical_cols():
-            vals[col] = df[col].cat.categories.tolist()
-
-        return vals
+        return {
+            col: df[col].cat.categories.tolist()
+            for col in TransDBSchema.get_categorical_cols()
+        }
 
     def get_records(self) -> dict:
         """

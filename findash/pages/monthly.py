@@ -40,7 +40,7 @@ def _create_month_dd():
 
 
 def _calculate_outflow_total(last: bool = False) -> float:
-    db = TRANS_DB if not last else TRANS_DB.specific_month
+    db = TRANS_DB.specific_month if last else TRANS_DB
     return db[TransDBSchema.OUTFLOW].sum()
 
 
@@ -51,7 +51,7 @@ def _calculate_checking_total(last: bool = False) -> float:
     :param last: if True, sum only this month's inflow
     """
     checking_accounts = [acc.institution for acc in ACCOUNTS.values()]
-    db = TRANS_DB if not last else TRANS_DB.specific_month
+    db = TRANS_DB.specific_month if last else TRANS_DB
     return db[db[TransDBSchema.ACCOUNT].isin(checking_accounts)][
             TransDBSchema.INFLOW].sum()
 
@@ -86,9 +86,10 @@ def _get_balance_per_account_for_popup():
     checking_str = [acc.institution for acc in ACCOUNTS.values() if
                     acc.is_checking]
     checking_only = per_account[per_account.index.isin(checking_str)]
-    string_rep = ''
-    for account, acc_sum in checking_only.items():
-        string_rep += f'**{account}**: {acc_sum}\n'
+    string_rep = ''.join(
+        f'**{account}**: {acc_sum}\n'
+        for account, acc_sum in checking_only.items()
+    )
     return string_rep[:-1]
 
 
@@ -98,10 +99,26 @@ def _get_income_per_account_popup():
     non_checking_str = [acc.institution for acc in ACCOUNTS.values() if
                         acc.is_checking]
     non_checking_only = per_account[per_account.index.isin(non_checking_str)]
-    string_rep = ''
-    for account, acc_sum in non_checking_only.items():
-        string_rep += f'**{account}**: {acc_sum}\n'
+    string_rep = ''.join(
+        f'**{account}**: {acc_sum}\n'
+        for account, acc_sum in non_checking_only.items()
+    )
     return string_rep[:-1]
+
+
+def _create_stat_headings() -> Tuple[dmc.Group, Tuple[dbc.Popover, dbc.Popover]]:
+    checking_card, checking_popover = _create_checking_card()
+    income_card, income_popover = _create_income_card()
+    expenses_card = _create_expenses_card()
+    savings_card = _create_savings_card()
+    group = dmc.Group([
+        checking_card,
+        income_card,
+        expenses_card,
+        savings_card,
+    ])
+
+    return group, (checking_popover, income_popover)
 
 
 def _create_banner_card(title: str,
@@ -110,8 +127,8 @@ def _create_banner_card(title: str,
                         color: str,
                         id: str) -> dbc.Card:
     return dbc.Card([
-        dbc.CardHeader(title),
-        html.H2(f"{value:,.0f}{SHEKEL_SYM}"),
+        html.H1(title),
+        html.H3(f"{value:,.0f}{SHEKEL_SYM}"),
         html.P(subtitle, style={'color': color})],
         body=True,
         id=id,
@@ -124,9 +141,9 @@ def _create_checking_card():
     checking_total = _calculate_checking_total()
 
     checking_card = dbc.Card([
-                    dbc.CardHeader('Checking'),
-                    html.H2(f"{checking_total:,.0f}{SHEKEL_SYM}"),
-                    html.P(f"+12% MoM(?)", style={'color': 'green'})], # todo - think of what the subtitle needs to be
+                    html.H1("Checking"),
+                    html.H3(f"{checking_total:,.0f}{SHEKEL_SYM}"),
+                    html.P("+12% MoM(?)", style={'color': 'green'})], # todo - think of what the subtitle needs to be
                     body=True,
                     id=MonthlyIDs.CHECKING_CARD,
                     color='light',
@@ -200,12 +217,13 @@ def _create_expenses_card():
 
 
 def _create_savings_card():
-    return _create_banner_card(title='Savings',
-                               value=2000,
-                               subtitle=f'Previous month 1000',
-                               color='green',
-                               id=MonthlyIDs.SAVINGS_CARD
-                               )
+    return _create_banner_card(
+        title='Savings',
+        value=2000,
+        subtitle='Previous month 1000',
+        color='green',
+        id=MonthlyIDs.SAVINGS_CARD,
+    )
 
 
 def _create_notif_card():
@@ -323,28 +341,25 @@ def create_accordion_items():
 
 
 def _create_layout():
+    stat_headings, popovers = _create_stat_headings()
     return dbc.Container([
         html.Div(id=MonthlyIDs.DUMMY_DIV),
         dcc.Store(id=MonthlyIDs.MONTH_STORE, data=get_current_year_month(),
                   storage_type='session'),
         dcc.Location(id=MonthlyIDs.URL, refresh=True),
+        *popovers,
         dbc.Row([
            dbc.Col([_create_month_banner()], width=8),
            dbc.Col(id=MonthlyIDs.MONTHLY_DD_COL, width=2)]),
         dmc.Space(h=30),
         dbc.Row([
-           dbc.Col(_create_checking_card(), width=2),
-           dbc.Col(_create_income_card(), width=2),
-           dbc.Col(_create_expenses_card(), width=2),
-           dbc.Col(_create_savings_card(), width=2),
-           dbc.Col(_create_notif_card(), width=4)]),
+            stat_headings
+        ]),
         html.Br(),
         dbc.Row([
             html.Div(
                 dmc.Drawer(id=MonthlyIDs.TRANS_DRAWER, size='70%',
-                           style={'overflowY': 'auto', 'height': '100%', 'margin-left':'100px'},
-                           sx={'margin-left': '5rem'}),
-                className='test'
+                           style={'overflowY': 'auto', 'height': '100%'})
             ),
             dmc.AccordionMultiple(
                 children=create_accordion_items())

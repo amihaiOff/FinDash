@@ -76,3 +76,19 @@
 .mantine-f6wyqv {
     margin-left: 5rem;
 }
+
+#income_card {
+    box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0);
+}
+
+#expenses_card {
+    box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0);
+}
+
+#checking_card {
+    box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0);
+}
+
+#savings_card {
+    box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0);
+}

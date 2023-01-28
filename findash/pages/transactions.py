@@ -89,7 +89,7 @@ def _create_layout():
                 dbc.Row(_create_add_row_split_buttons()),
                 dmc.Space(h=20),
                 upload_file_section := _create_file_uploader(),
-                # insert_file_modal
+                # todo insert_file_modal
             ], width=2),
             dbc.Col([
                 html.Div(_create_main_trans_table(), id=TransIDs.TRANS_TBL_DIV)
