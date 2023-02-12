@@ -6,9 +6,8 @@ import dash_mantine_components as dmc
 import dash_bootstrap_components as dbc
 from dash import dcc, dash_table
 
-from accounts import ACCOUNTS
 from element_ids import TransIDs
-from main import CAT_DB, TRANS_DB
+from main import CAT_DB, TRANS_DB, ACCOUNTS
 from transactions_db import TransDBSchema
 from utils import SHEKEL_SYM, format_date_col_for_display
 from categories_db import _get_group_and_cat_for_dropdown

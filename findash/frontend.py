@@ -29,8 +29,3 @@ def setup_app():
 def run_frontend():
     app = setup_app()
     app.run_server(port=8001, debug=True)
-
-
-# if __name__ == '__main__':
-#     app = setup_app()
-#     run_frontend(app)

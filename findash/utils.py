@@ -11,6 +11,8 @@ from dash import html
 
 
 SHEKEL_SYM = '₪'
+START_DATE_DEFAULT = pd.to_datetime('1900-01-01')
+END_DATE_DEFAULT = pd.to_datetime('2100-01-01')
 
 
 class SK:
@@ -38,6 +40,10 @@ class Settings:
         path_to_vault = self._settings[SK.DB][SK.PATH_TO_VAULTS]
         path_prefix = f'{path_to_vault}/{self._vault_name}'
         return f'{path_prefix}/{db_asset_path}'
+
+    @property
+    def vault_name(self) -> str:
+        return self._vault_name
 
     @property
     def trans_db_path(self) -> str:
@@ -212,28 +218,13 @@ def format_date_col_for_display(trans_df: pd.DataFrame, date_col: datetime) \
     return df_copy
 
 
-def set_cat_col_categories(df: pd.DataFrame,
-                           cat_vals: Dict[str, Any]) -> pd.DataFrame:
-    """
-    given a dict of col_name: cat_vals, set the categorical values of col_name
-    to cat_val, in df
-    :return: df with set categoricals
-    """
-    for col_name, cat_vals in cat_vals.items():
-        df[col_name] = df[col_name].cat.set_categories(cat_vals)
-
-    return df
-
-
 def check_null(value: Any) -> bool:
     """ check if a value is null """
     if value is None:
         return True
     if isinstance(value, str) and value == '':
         return True
-    if isinstance(value, float) and np.isnan(value):
-        return True
-    return False
+    return bool(isinstance(value, float) and np.isnan(value))
 
 
 def create_table(df: pd.DataFrame):

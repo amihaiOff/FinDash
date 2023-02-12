@@ -1,3 +1,4 @@
+import contextlib
 from abc import abstractmethod, ABC
 
 import numpy as np
@@ -7,10 +8,9 @@ from typing import Dict
 
 import pandas as pd
 
+from main import ACCOUNTS
 from transactions_db import TransDBSchema
 from utils import SETTINGS, MappingDict
-
-ACCOUNTS = {}
 
 
 class Institution(Enum):
@@ -42,7 +42,7 @@ class ColMapping:
             if len(col_diff) == 0:
                 return
 
-        raise ValueError(f'Missing mandatory cols in transaction file')
+        raise ValueError('Missing mandatory cols in transaction file')
 
     @property
     def col_mapping(self):
@@ -99,12 +99,10 @@ class FIBI(Account):
     @staticmethod
     def _find_first_date_row_ind(trans_file: pd.DataFrame) -> int:
         for row_ind, row in trans_file.iloc[:, -1].items():
-            try:
+            with contextlib.suppress(ValueError):
                 res = pd.to_datetime(row)
                 if pd.notna(res):
                     return row_ind
-            except ValueError:
-                pass
 
     def __init__(self, name: str):
         self.is_checking = True
@@ -153,7 +151,6 @@ class CAL(Account):
         trans_file = _apply_col_mapping(trans_file, self._get_col_mapping())
         return trans_file
 
-
     @property
     def inflow_sign(self) -> InflowSign:
         return InflowSign.MINUS
@@ -168,16 +165,20 @@ class OZ(Account):
         self.is_checking = True
         super().__init__(name)
 
-    def get_col_mapping(self) -> ColMapping:
-        col_mapping = {
-
-        }
+    def _get_col_mapping(self) -> ColMapping:
+        col_mapping = {}
 
         return ColMapping(col_mapping)
 
     @property
     def inflow_sign(self) -> InflowSign:
-        pass  # todo
+        return InflowSign.MINUS
+
+    def process_trans_file(self, trans_file: pd.DataFrame) -> pd.DataFrame:
+        pass
+
+    def get_datetime_format(self) -> str:
+        pass
 
 
 def _apply_col_mapping(trans_file: pd.DataFrame,
@@ -221,8 +222,7 @@ def init_account_by_name(acc_key: str) -> Account:
     accounts_yaml = yaml.safe_load(open(SETTINGS.accounts_path))
     account = accounts_yaml[acc_key]
     cls = accounts_register[account['institution']]
-    acc = cls(acc_key)
-    return acc
+    return cls(acc_key)
 
 
 accounts_register = {
@@ -230,3 +230,5 @@ accounts_register = {
         'cal': CAL,
         'oz': OZ,
     }
+
+init_accounts()

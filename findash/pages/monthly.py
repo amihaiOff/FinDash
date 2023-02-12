@@ -10,11 +10,10 @@ import dash_mantine_components as dmc
 import pandas as pd
 from dash.exceptions import PreventUpdate
 
-from main import CAT_DB, TRANS_DB
+from main import CAT_DB, TRANS_DB, ACCOUNTS
 from element_ids import MonthlyIDs
 from categories_db import CatDBSchema
 from transactions_db import TransDBSchema
-from accounts import ACCOUNTS
 from utils import SHEKEL_SYM, conditional_coloring, get_current_year_month, \
     create_table, format_date_col_for_display
 
@@ -50,7 +49,8 @@ def _calculate_checking_total(last: bool = False) -> float:
     count)
     :param last: if True, sum only this month's inflow
     """
-    checking_accounts = [acc.institution for acc in ACCOUNTS.values()]
+    # checking_accounts = [acc.institution for acc in ACCOUNTS.values()]
+    checking_accounts = list(ACCOUNTS.keys())
     db = TRANS_DB.specific_month if last else TRANS_DB
     return db[db[TransDBSchema.ACCOUNT].isin(checking_accounts)][
             TransDBSchema.INFLOW].sum()
@@ -268,9 +268,11 @@ def cat_content(title: str,
             dmc.Col(dmc.Text(f"{title}", weight=text_weight), span=2),
             dmc.Col(dmc.Text(f"{usage_pct}% budget used", align="center"),
                     span=2),
-            dmc.Col(dmc.Progress(value=progress_val, label=f"{usage}/{cat_budget}",
-                                 size=size, color=color), span=5),
+            dmc.Col(
+                dmc.Progress(value=progress_val, label=f"{usage}/{cat_budget}",
+                             size=size, color=color, id=f'{title}-progress'), span=5),
             dmc.Col(dmc.Text(f'Remaining: {cat_budget-usage:,.0f}'), span=2),
+            dbc.Tooltip(f"{usage}/{cat_budget}", target=f'{title}-progress', placement='bottom')
         ]
 
     if button_id is not None:
@@ -303,8 +305,7 @@ def accordion_item(group_title: str,
         dmc.AccordionPanel([
             cat_content(title, usage, budget,
                         button_id={'type': 'drawer-btn', 'index': title})
-            for title, (usage, budget) in
-            cat_stats.items()
+            for title, (usage, budget) in cat_stats.items()
         ])
     ],
         value=str(np.random.randint(1000))

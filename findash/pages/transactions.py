@@ -12,8 +12,7 @@ from dash.dash_table.Format import Format, Symbol
 from dash.exceptions import PreventUpdate
 
 
-from main import CAT_DB, TRANS_DB
-from accounts import ACCOUNTS
+from main import CAT_DB, TRANS_DB, ACCOUNTS
 from transactions_db import TransDBSchema
 from element_ids import TransIDs
 from utils import format_date_col_for_display, SHEKEL_SYM
@@ -48,7 +47,7 @@ group_picker = dbc.Card([
 account_picker = dbc.Card([
     dbc.CardHeader('Account'),
     dcc.Dropdown(
-        options=TRANS_DB[TransDBSchema.ACCOUNT].unique().tolist(),
+        options=list(ACCOUNTS.keys()),
         placeholder='Select an account',
         id=TransIDs.ACC_PICKER)
 ])

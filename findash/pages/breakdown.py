@@ -1,7 +1,8 @@
 import dash
 import dash_bootstrap_components as dbc
 import numpy as np
-from dash import html, dcc, Input, Output
+import pandas as pd
+from dash import dcc, Input, Output
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -10,18 +11,15 @@ from main import TRANS_DB, CAT_DB
 from transactions_db import TransDBSchema
 from categories_db import CatDBSchema
 from element_ids import BreakdownIDs
-from utils import month_num_to_str
 
 dash.register_page(__name__)
 
 DEFAULT_GROUP = CAT_DB.get_group_names()[0]
 
-def update_plots():
-    """
-    to be called from frontend callback to update plots when data changes
-    :return:
-    """
-    pass
+
+def sort_by_date(df: pd.DataFrame):
+    df['date_numeric'] = pd.to_datetime(df.index, format='%b-%y')
+    return df.sort_values('date_numeric')
 
 
 def _create_under_over_card():
@@ -32,11 +30,11 @@ def _create_under_over_card():
     month_in_out['diff'] = month_in_out[TransDBSchema.INFLOW] - \
                            month_in_out[TransDBSchema.OUTFLOW]
 
-    month_in_out = month_in_out.iloc[::-1]
+    month_in_out = sort_by_date(month_in_out)
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     fig.add_trace(go.Bar(x=month_in_out.index,
                          y=month_in_out[TransDBSchema.INFLOW],
-                            name='Inflow'),
+                         name='Inflow'),
                   secondary_y=False)
     fig.add_trace(go.Bar(x=month_in_out.index,
                          y=month_in_out[TransDBSchema.OUTFLOW],
@@ -65,7 +63,8 @@ def _expenses_over_time_by_group(group: str):
     trans_db = trans_db[trans_db[TransDBSchema.CAT_GROUP] == group]
 
     grouped = trans_db.groupby('month').agg({TransDBSchema.OUTFLOW: 'sum'})
-    grouped = grouped.iloc[::-1]
+    grouped = sort_by_date(grouped)
+
     fig = px.bar(data_frame=grouped, x=grouped.index, y=TransDBSchema.OUTFLOW)
     fig.update_layout(title_text=f'Expenses by {group} over time')
     fig.update_yaxes(title_text='Amount')

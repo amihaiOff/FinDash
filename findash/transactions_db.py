@@ -7,9 +7,9 @@ import pandas as pd
 
 from categories_db import CategoriesDB
 from utils import SETTINGS, create_uuid, format_date_col_for_display, \
-    set_cat_col_categories, check_null, get_current_year_and_month, Change, \
-    ChangeType
+    check_null, get_current_year_and_month, Change, ChangeType, START_DATE_DEFAULT
 from change_list import ChangeList
+from main import ACCOUNTS
 
 """
 The purpose of this module is to provide a database for transactions.
@@ -46,6 +46,7 @@ class TransDBSchema:
             cls.INFLOW: 'Inflow',
             cls.OUTFLOW: 'Outflow',
         }
+
     @classmethod
     def get_mandatory_col_sets(cls) -> Tuple[List[Union[str, float]]]:
         """
@@ -171,23 +172,40 @@ class TransactionsDBParquet:
             elif item.name.endswith('pq'):
                 pq_files.append(pd.read_parquet(item))
 
-        if len(pq_files) == 0:
-            self._db = pd.DataFrame()
+        if not len(pq_files):
+            self._init_empty_db()
+            return
 
-        category_vals = self._get_category_vals(pq_files[0])
+        # category_vals = self._get_category_vals(pq_files[0])
         final_df = pd.concat(pq_files)
         final_df = apply_dtypes(final_df, include_date=False)
-        final_df = set_cat_col_categories(final_df, category_vals)
+        final_df = self._set_cat_col_categories(final_df)
         self._db = final_df
-
-        # todo remove
-        # if TransDBSchema.SPLIT not in self._db.columns:
-        #     self._db[TransDBSchema.SPLIT] = None
 
         self._sort_db()
 
         # set monthly_trans
         self.set_specific_month(*get_current_year_and_month())
+
+    def _set_cat_col_categories(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        given a dict of col_name: cat_vals, set the categorical values of col_name
+        to cat_val, in df
+        :return: df with set categoricals
+        """
+        df[TransDBSchema.CAT] = df[TransDBSchema.CAT].set_categories(self._cat_db.get_categories())
+        df[TransDBSchema.CAT_GROUP] = df[TransDBSchema.CAT_GROUP].set_categories(self._cat_db.get_group_names())
+        df[TransDBSchema.ACCOUNT] = df[TransDBSchema.ACCOUNT].set_categories(list(ACCOUNTS.keys()))
+
+        return df
+
+    def _init_empty_db(self):
+        # todo - not in use for now, need to find solution for loading app with empty db
+        cols_with_def_value = TransDBSchema.get_non_mandatory_cols()
+        cols_with_def_value.update({TransDBSchema.DATE: pd.to_datetime(START_DATE_DEFAULT),
+                                    TransDBSchema.PAYEE: 'null',
+                                    TransDBSchema.AMOUNT: 0.0})
+        self._db = pd.DataFrame(cols_with_def_value, index=[0])
 
     def save_db(self, months_to_save: List[Tuple[str, str]]) -> None:
         """
@@ -373,6 +391,8 @@ class TransactionsDBParquet:
         prev_value = self._db.loc[index, col_name]
         self._db.loc[index, col_name] = value
 
+        if col_name in [TransDBSchema.OUTFLOW, TransDBSchema.INFLOW]:
+            self._db.loc[index, TransDBSchema.AMOUNT] = value
         # trans moved to another month - save original month to save removal
         if (
             isinstance(prev_value, pd.Timestamp)
@@ -388,6 +408,7 @@ class TransactionsDBParquet:
         self.save_db_from_uuids(uuid_list)
 
     def set_specific_month(self, year: str, month: str):
+        print(f'setting specific month to {year}-{month}')
         monthly_trans = self.get_trans_by_month(year, month)
         self.specific_month = TransactionsDBParquet(self._cat_db, monthly_trans)
 

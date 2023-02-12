@@ -14,7 +14,7 @@ TEST_REQUIRES = [
     'pytest', 'coverage', 'pytest-cov', 'pytest-ordering',
     # non-testing packagesrequired by tests, not by the package
     'scikit-learn', 'pdutil', 'nltk', 'xdg',
-    # dev scripts
+    # dev_old scripts
     'rich',
     # to be able to run `python setup.py checkdocs`
     'collective.checkdocs', 'pygments',

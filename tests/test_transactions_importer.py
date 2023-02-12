@@ -1,5 +1,4 @@
 import csv
-import tempfile
 from io import StringIO
 
 import pandas as pd

@@ -12,7 +12,7 @@ from dash import Dash, html
 import dash
 
 
-def setup_trans_db(load_type: str, cat_db: CategoriesDB):
+def setup_trans_db(cat_db: CategoriesDB):
     """
 
     :param load_type: options are 'dummy', 'import', 'parquet'
@@ -23,30 +23,24 @@ def setup_trans_db(load_type: str, cat_db: CategoriesDB):
     """
     trans_db = TransactionsDBParquet(cat_db)
 
-    if load_type == 'dummy':
-        trans_gen = TransGenerator(60)
-        transactions = trans_gen.generate()
-        trans_db._db = transactions
-
-    elif load_type == 'import':
-        for file in Path('../dbs/dev/tmp_trans').iterdir():
-            trans = import_file(file, 'amihais cal', cat_db)
-            trans_db.insert_data(trans)
-
-    elif load_type == 'parquet':
-        trans_db.connect(SETTINGS.trans_db_path)
+    # if load_type == 'dummy':
+    #     trans_gen = TransGenerator(60)
+    #     transactions = trans_gen.generate()
+    #     trans_db._db = transactions
+    #
+    # elif load_type == 'import':
+    #     for file in Path(f'../dbs/{SETTINGS.vault_name}/tmp_trans').iterdir():
+    #         trans = import_file(file, 'amihais cal', cat_db)
+    #         trans_db.insert_data(trans)
+    #
+    # elif load_type == 'parquet':
+    trans_db.connect(SETTINGS.trans_db_path)
 
     return trans_db
 
 
 def setup_cat_db():
-    cat_db = CategoriesDB()
-    # cat_db._db = generate_catdb()
-    return cat_db
-
-
-def general_setup():
-    init_accounts()
+    return CategoriesDB()
 
 
 def make_card(coin):
@@ -109,6 +103,13 @@ def _create_nav_bar():
                         href="/transactions",
                         active="exact",
                     ),
+                    dbc.NavLink([
+                        html.I(className="fas fa-chart-line me-2"),
+                        html.Span("Categories"),
+                        ],
+                        href="/categories",
+                        active="exact",
+                    ),
                 ],
                 vertical=True,
                 pills=True,
@@ -139,15 +140,17 @@ def setup_pages_container(app):
         )
     ])
 
-init_accounts()
+
+# init_accounts()
 CAT_DB = setup_cat_db()
 
-if len(list(Path('../dbs/dev/trans_db/2022').iterdir())) > 0:
-    load_type = 'parquet'
-else:
-    load_type = 'import'
 
-TRANS_DB = setup_trans_db(load_type, CAT_DB)
+# if list(Path(f'../dbs/{SETTINGS.vault_name}/trans_db/2022').iterdir()):
+#     load_type = 'parquet'
+# else:
+#     load_type = 'import'
+
+TRANS_DB = setup_trans_db(CAT_DB)
 
 
 def setup_app():
@@ -168,3 +171,4 @@ def run_frontend():
 if __name__ == "__main__":
     # general_setup()
     run_frontend()
+ACCOUNTS = {}
