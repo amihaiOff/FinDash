@@ -128,7 +128,7 @@ class TransactionsDBParquet:
         self._db: pd.DataFrame = db
         self._cat_db = cat_db
         self._accounts = accounts
-        self.specific_month = None
+        self._specific_month_date: str = ''
         self.change_list = ChangeList()
 
     def __getitem__(self, item):
@@ -418,10 +418,7 @@ class TransactionsDBParquet:
 
     def set_specific_month(self, year: str, month: str):
         print(f'setting specific month to {year}-{month}')
-        monthly_trans = self.get_trans_by_month(year, month)
-        self.specific_month = TransactionsDBParquet(self._cat_db,
-                                                    self._accounts,
-                                                    monthly_trans)
+        self._specific_month_date = f'{year}-{month}'
 
     def _get_months_from_uuid(self, uuid_lst: List[str]) -> List[
         Tuple[str, str]]:
@@ -594,6 +591,14 @@ class TransactionsDBParquet:
     @property
     def db(self):
         return self._db
+
+    @property
+    def specific_month(self):
+        year, month = self._specific_month_date.split('-')
+        trans = self.get_trans_by_month(year, month)
+        return TransactionsDBParquet(self._cat_db,
+                                     self._accounts,
+                                     trans)
 
 
 def apply_dtypes(df: pd.DataFrame,
