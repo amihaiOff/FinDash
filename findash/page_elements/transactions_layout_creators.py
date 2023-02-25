@@ -7,7 +7,8 @@ import dash_bootstrap_components as dbc
 from dash import dcc, dash_table
 
 from element_ids import TransIDs
-from main import CAT_DB, TRANS_DB, ACCOUNTS
+from main import CAT_DB, TRANS_DB
+from accounts import ACCOUNTS
 from transactions_db import TransDBSchema
 from utils import SHEKEL_SYM, format_date_col_for_display
 from categories_db import _get_group_and_cat_for_dropdown

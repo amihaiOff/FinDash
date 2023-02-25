@@ -10,7 +10,8 @@ import dash_mantine_components as dmc
 import pandas as pd
 from dash.exceptions import PreventUpdate
 
-from main import CAT_DB, TRANS_DB, ACCOUNTS
+from main import CAT_DB, TRANS_DB
+from accounts import ACCOUNTS
 from element_ids import MonthlyIDs
 from categories_db import CatDBSchema
 from transactions_db import TransDBSchema
@@ -378,11 +379,12 @@ layout = _create_layout
     State(MonthlyIDs.MONTH_STORE, 'data'),
 )
 def _change_month(dd_value, month_store):
+    year, month = dd_value.split('-')
+    TRANS_DB.set_specific_month(year, month)
+
     if month_store == dd_value:
         raise PreventUpdate
 
-    year, month = dd_value.split('-')
-    TRANS_DB.set_specific_month(year, month)
     return dd_value, '/monthly'
 
 

@@ -12,7 +12,8 @@ from dash.dash_table.Format import Format, Symbol
 from dash.exceptions import PreventUpdate
 
 
-from main import CAT_DB, TRANS_DB, ACCOUNTS
+from main import CAT_DB, TRANS_DB
+from accounts import ACCOUNTS
 from transactions_db import TransDBSchema
 from element_ids import TransIDs
 from utils import format_date_col_for_display, SHEKEL_SYM

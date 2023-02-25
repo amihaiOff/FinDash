@@ -8,9 +8,11 @@ from typing import Dict
 
 import pandas as pd
 
-from main import ACCOUNTS
 from transactions_db import TransDBSchema
 from utils import SETTINGS, MappingDict
+
+
+ACCOUNTS = {}
 
 
 class Institution(Enum):
@@ -27,17 +29,15 @@ class InflowSign(Enum):
 class ColMapping:
     def __init__(self, col_mapping: Dict[str, str]):
         self._dict_col_mapping = col_mapping
-        self._validate_mapping(col_mapping)
+        self._validate_mapping()
 
-    @staticmethod
-    def _validate_mapping(col_mapping: Dict[str, str]):
+    def _validate_mapping(self):
         """
         make sure the mapping includes all mandatory columns
-        :param col_mapping:
         :return:
         """
         for option in TransDBSchema.get_mandatory_col_sets():
-            col_inter = set(col_mapping.values()).intersection(set(option))
+            col_inter = set(self._dict_col_mapping.values()).intersection(set(option))
             col_diff = col_inter.symmetric_difference(set(option))
             if len(col_diff) == 0:
                 return
@@ -52,6 +52,10 @@ class ColMapping:
 class Account(ABC):
     def __init__(self, name: str):
         self._name = name
+        self._validate_account()
+
+    def _validate_account(self):
+        self._get_col_mapping()._validate_mapping()
 
     @abstractmethod
     def _get_col_mapping(self) -> ColMapping:

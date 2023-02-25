@@ -1,15 +1,11 @@
-from pathlib import Path
-
-from transactions_db import TransactionsDBParquet
-from categories_db import CategoriesDB
-
-from transactions_importer import import_file
-from utils import SETTINGS
-from dummy_data import TransGenerator
-from accounts import init_accounts
 import dash_bootstrap_components as dbc
 from dash import Dash, html
 import dash
+
+from transactions_db import TransactionsDBParquet, TransDBSchema
+from categories_db import CategoriesDB
+from utils import SETTINGS
+from accounts import ACCOUNTS
 
 
 def setup_trans_db(cat_db: CategoriesDB):
@@ -21,7 +17,7 @@ def setup_trans_db(cat_db: CategoriesDB):
     :param cat_db:
     :return:
     """
-    trans_db = TransactionsDBParquet(cat_db)
+    trans_db = TransactionsDBParquet(cat_db, ACCOUNTS)
 
     # if load_type == 'dummy':
     #     trans_gen = TransGenerator(60)
@@ -38,9 +34,6 @@ def setup_trans_db(cat_db: CategoriesDB):
 
     return trans_db
 
-
-def setup_cat_db():
-    return CategoriesDB()
 
 
 def make_card(coin):
@@ -141,8 +134,12 @@ def setup_pages_container(app):
     ])
 
 
-# init_accounts()
-CAT_DB = setup_cat_db()
+# def _validate_accounts(accounts):
+#     for account in accounts.values():
+#         account.validate_account(TransDBSchema.get_mandatory_col_sets())
+
+# _validate_accounts(ACCOUNTS)
+CAT_DB = CategoriesDB()
 
 
 # if list(Path(f'../dbs/{SETTINGS.vault_name}/trans_db/2022').iterdir()):
@@ -169,6 +166,4 @@ def run_frontend():
 
 
 if __name__ == "__main__":
-    # general_setup()
     run_frontend()
-ACCOUNTS = {}

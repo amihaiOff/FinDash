@@ -9,7 +9,6 @@ from categories_db import CategoriesDB
 from utils import SETTINGS, create_uuid, format_date_col_for_display, \
     check_null, get_current_year_and_month, Change, ChangeType, START_DATE_DEFAULT
 from change_list import ChangeList
-from main import ACCOUNTS
 
 """
 The purpose of this module is to provide a database for transactions.
@@ -123,20 +122,24 @@ class TransDBSchema:
 class TransactionsDBParquet:
     def __init__(self,
                  cat_db: CategoriesDB,
+                 accounts: dict,  # todo - how to solve the problem that I cannot import accounts type for typing?
                  db: pd.DataFrame = pd.DataFrame()):
+
         self._db: pd.DataFrame = db
         self._cat_db = cat_db
+        self._accounts = accounts
         self.specific_month = None
         self.change_list = ChangeList()
 
     def __getitem__(self, item):
-        return TransactionsDBParquet(self._cat_db, self._db.__getitem__(item))
+        return TransactionsDBParquet(self._cat_db, self._accounts, self._db.__getitem__(item))
 
     def __getattr__(self, item):
         return self._db.__getattr__(item)
 
     def __setitem__(self, name, value):
         return TransactionsDBParquet(self._cat_db,
+                                     self._accounts,
                                      self._db.__setitem__(name, value))
 
     def __eq__(self, other):
@@ -156,6 +159,9 @@ class TransactionsDBParquet:
 
     def __repr__(self):
         return self._db.__repr__()
+
+    def __len__(self):
+        return len(self._db)
 
     def connect(self, db_path: str):
         """
@@ -193,9 +199,9 @@ class TransactionsDBParquet:
         to cat_val, in df
         :return: df with set categoricals
         """
-        df[TransDBSchema.CAT] = df[TransDBSchema.CAT].set_categories(self._cat_db.get_categories())
-        df[TransDBSchema.CAT_GROUP] = df[TransDBSchema.CAT_GROUP].set_categories(self._cat_db.get_group_names())
-        df[TransDBSchema.ACCOUNT] = df[TransDBSchema.ACCOUNT].set_categories(list(ACCOUNTS.keys()))
+        df[TransDBSchema.CAT] = df[TransDBSchema.CAT].cat.set_categories(self._cat_db.get_categories())
+        df[TransDBSchema.CAT_GROUP] = df[TransDBSchema.CAT_GROUP].cat.set_categories(self._cat_db.get_group_names())
+        df[TransDBSchema.ACCOUNT] = df[TransDBSchema.ACCOUNT].cat.set_categories(list(self._accounts.keys()))
 
         return df
 
@@ -321,6 +327,9 @@ class TransactionsDBParquet:
         date = datetime.now().strftime('%Y-%m-%d')
         new_row[TransDBSchema.DATE] = pd.to_datetime(date)
         new_row[TransDBSchema.ACCOUNT] = ''
+        new_row[TransDBSchema.PAYEE] = ''
+        new_row[TransDBSchema.INFLOW] = 0
+        new_row[TransDBSchema.OUTFLOW] = 0
 
         db = pd.concat([new_row, self._db])
         self._db = apply_dtypes(db,
@@ -410,7 +419,9 @@ class TransactionsDBParquet:
     def set_specific_month(self, year: str, month: str):
         print(f'setting specific month to {year}-{month}')
         monthly_trans = self.get_trans_by_month(year, month)
-        self.specific_month = TransactionsDBParquet(self._cat_db, monthly_trans)
+        self.specific_month = TransactionsDBParquet(self._cat_db,
+                                                    self._accounts,
+                                                    monthly_trans)
 
     def _get_months_from_uuid(self, uuid_lst: List[str]) -> List[
         Tuple[str, str]]:
@@ -510,6 +521,7 @@ class TransactionsDBParquet:
         :return: dataframe of data
         """
         return TransactionsDBParquet(self._cat_db,
+                                     self._accounts,
                                      self._db[self._db[TransDBSchema.CAT_GROUP]
                                               == group])
 

@@ -4,8 +4,7 @@ from typing import Union
 
 import pandas as pd
 
-from accounts import InflowSign
-from main import ACCOUNTS
+from accounts import InflowSign, ACCOUNTS
 from transactions_db import TransDBSchema
 from transactions_db import apply_dtypes
 from categories_db import CategoriesDB
