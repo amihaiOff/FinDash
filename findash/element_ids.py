@@ -28,6 +28,8 @@ class TransIDs:
     ROW_DEL_CONFIRM_DIALOG = 'row_del_confirm_dialog'
     CHANGE_STORE = 'change_store'
     SPLIT_TBL_DIV = 'split_tbl_div'
+    INSERT_FILE_SUMMARY_MODAL = 'insert_file_summary_modal'
+    INSERT_FILE_SUMMARY_LABEL = 'insert_file_summary_label'
 
 
 class MonthlyIDs:

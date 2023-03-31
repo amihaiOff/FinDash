@@ -138,7 +138,8 @@ def setup_pages_container(app):
 #         account.validate_account(TransDBSchema.get_mandatory_col_sets())
 
 # _validate_accounts(ACCOUNTS)
-CAT_DB = CategoriesDB()
+if 'CAT_DB' not in globals():
+    CAT_DB = CategoriesDB()
 
 
 # if list(Path(f'../dbs/{SETTINGS.vault_name}/trans_db/2022').iterdir()):
@@ -146,7 +147,8 @@ CAT_DB = CategoriesDB()
 # else:
 #     load_type = 'import'
 
-TRANS_DB = setup_trans_db(CAT_DB)
+if 'TRANS_DB' not in globals():
+    TRANS_DB = setup_trans_db(CAT_DB)
 
 
 def setup_app():

@@ -1,5 +1,6 @@
 from dataclasses import dataclass, fields
 from datetime import datetime
+from functools import reduce
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Optional, Union
 
@@ -126,10 +127,13 @@ class TransactionsDBParquet:
                  db: pd.DataFrame = pd.DataFrame()):
 
         self._db: pd.DataFrame = db
+        self._full_db: pd.DataFrame = db.copy()
+        self._filtered_db: pd.DataFrame = db.copy()
         self._cat_db = cat_db
         self._accounts = accounts
         self._specific_month_date: str = ''
         self.change_list = ChangeList()
+        self._applied_filters = {}
 
     def __getitem__(self, item):
         return TransactionsDBParquet(self._cat_db, self._accounts, self._db.__getitem__(item))
@@ -367,6 +371,7 @@ class TransactionsDBParquet:
         self._update_data(col_name, index, value)
 
     def submit_change(self, change: Change):
+
         if change.change_type == ChangeType.ADD_ROW:
             self.add_new_row()
 
@@ -382,6 +387,15 @@ class TransactionsDBParquet:
                 self._update_data(change.col_name, change.row_ind, change.current_value)
 
         self.change_list.append(change)
+
+    def _get_row_ind_full_table(self, change: Change):
+        """
+        When making changes on a filtered table, the row index will not be aligned with the full unfiltered table in the
+        backend. This function returns the correct row index in the full table.
+        :param change:
+        :return:
+        """
+
 
     def undo(self):
         pass
@@ -584,9 +598,26 @@ class TransactionsDBParquet:
         get records of db to feed into dash datatable
         :return:
         """
-        formatted_df = format_date_col_for_display(self._db,
+        df = self._db.copy()
+        if len(self._applied_filters) > 0:
+            df = self._db[reduce(lambda x, y: x & y, self._applied_filters.values())]
+
+        formatted_df = format_date_col_for_display(df,
                                                    TransDBSchema.DATE)
         return formatted_df.to_dict('records')
+
+    def set_filters(self, filters: Dict[str, pd.Series]):
+        """
+        set filters for the db
+        :param filters: list of filters
+        :return:
+        """
+        for filter_name, filter_series in filters.items():
+            if not isinstance(filter_series, pd.Series) and not isinstance(filter_series, bool):
+                raise ValueError(f'filter {filter_name} must be a pandas series '
+                                 f'of dtype bool')
+
+        self._applied_filters = filters
 
     @property
     def db(self):

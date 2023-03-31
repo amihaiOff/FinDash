@@ -85,12 +85,14 @@ class ChangeType(Enum):
 @dataclass
 class Change:
     ROW_IND = 'row_ind'
+    ROW_IND_FULL_TABLE = 'row_ind_full_table'
     COL_NAME = 'col_name'
     CURRENT_VALUE = 'current_value'
     PREV_VALUE = 'prev_value'
     CHANGE_TYPE = 'change_type'
 
     row_ind: Optional[int]
+    row_ind_full_table: Optional[int]
     col_name: Optional[str]
     current_value: Optional[str]
     prev_value: Optional[str]
@@ -210,12 +212,12 @@ def month_num_to_str(month_num: int) -> str:
     return datetime.date(1900, month_num, 1).strftime('%B')
 
 
-def format_date_col_for_display(trans_df: pd.DataFrame, date_col: datetime) \
+def format_date_col_for_display(trans_df: pd.DataFrame, date_col: str) \
         -> pd.DataFrame:
-    """ format the date column for display """
+    """ format the date column for display. Creates a copy of the df for display """
     df_copy = trans_df.copy()
     df_copy[date_col] = df_copy[date_col].dt.strftime('%Y-%m-%d')
-    return df_copy
+    return trans_df
 
 
 def check_null(value: Any) -> bool:

@@ -90,11 +90,6 @@ def _populate_inflow_outflow(trans_file: pd.DataFrame,
     :param trans_file: dataframe to populate
     :return: dataframe with inflow and outflow populated
     """
-    # if inflow\outflow in file, skip this
-    if TransDBSchema.OUTFLOW in trans_file.columns and \
-        TransDBSchema.INFLOW in trans_file.columns:
-        return trans_file
-
     # convert amount col into inflow and outflow
     cond = trans_file[TransDBSchema.AMOUNT] < 0 if account_inflow_sign == InflowSign.MINUS else \
         trans_file[TransDBSchema.AMOUNT] > 0

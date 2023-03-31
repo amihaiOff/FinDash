@@ -82,26 +82,28 @@ def _create_category_change_modal() -> dmc.Modal:
         title="Change Category",
         id=TransIDs.MODAL_CAT_CHANGE,
         children=[
-            dmc.Text(f"Would you like to apply this change to all transactions of"
-                     f"this payee?"),
+            dmc.Text(
+                'Would you like to apply this change to all transactions ofthis payee?'
+            ),
             dmc.Space(h=20),
             dmc.Group(
                 [
-                    dmc.Button("Yes",
-                               id=TransIDs.MODAL_CAT_CHANGE_YES,
-                               color="primary"),
-                    dmc.Button("No",
-                               color="red",
-                               variant="outline",
-                               id=TransIDs.MODAL_CAT_CHANGE_NO
+                    dmc.Button(
+                        "Yes",
+                        id=TransIDs.MODAL_CAT_CHANGE_YES,
+                        color="primary",
+                    ),
+                    dmc.Button(
+                        "No",
+                        color="red",
+                        variant="outline",
+                        id=TransIDs.MODAL_CAT_CHANGE_NO,
                     ),
                 ],
                 position="right",
             ),
         ],
     )
-
-
 
 
 def _create_file_uploader():
@@ -237,3 +239,20 @@ def _create_main_trans_table() -> dash_table.DataTable:
     return create_trans_table(id=TransIDs.TRANS_TBL,
                               table=TRANS_DB,
                               subset_cols=col_subset)
+
+
+def _create_file_insert_summary_modal() -> dmc.Modal:
+    """
+    Creates a modal for showing the summary of the file insert
+    :return:
+    """
+    return dmc.Modal(
+        title="File Insert Summary",
+        id=TransIDs.INSERT_FILE_SUMMARY_MODAL,
+        children=[
+            dmc.Text(
+                [],
+                id=TransIDs.INSERT_FILE_SUMMARY_LABEL
+            ),
+        ],
+    )
