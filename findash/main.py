@@ -35,7 +35,6 @@ def setup_trans_db(cat_db: CategoriesDB):
     return trans_db
 
 
-
 def make_card(coin):
     change = coin["price_change_percentage_24h"]
     price = coin["current_price"]
