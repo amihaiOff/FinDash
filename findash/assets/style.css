@@ -92,3 +92,12 @@
 #savings_card {
     box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0);
 }
+
+.category-card {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.category-card-header {
+    background-color: #FFE2C0;
+}

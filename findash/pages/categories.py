@@ -23,17 +23,17 @@ def _create_group_card(group_name: str,
     return dmc.Card([
         dmc.CardSection([
             dmc.Group([
-                dmc.Text(group_name, size="lg"),
-                dmc.Text(group_budget, size="lg"),
-                dmc.ActionIcon(
-                    DashIconify(icon="carbon:overflow-menu-horizontal"),
-                    color="gray",
-                    variant="transparent",
-                )
+                dmc.Text(group_name, size="md", style={'padding-left': '5px'}),
+                dmc.Text(group_budget, size="md", style={'padding-right': '5px'}),
+                # dmc.ActionIcon(
+                #     DashIconify(icon="carbon:overflow-menu-horizontal"),
+                #     color="gray",
+                #     variant="transparent",
+                # )
             ], position='apart')
-        ], withBorder=True),
+        ], withBorder=True, className="category-card-header"),
         dmc.Table(create_table(cat_df))
-    ], withBorder=True, shadow="md", radius="md")
+    ], withBorder=True, shadow="md", radius="md", className="category-card")
 
 
 def _create_category_card_grid():
