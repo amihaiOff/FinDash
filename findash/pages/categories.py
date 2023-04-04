@@ -4,12 +4,14 @@ import dash
 import dash_mantine_components as dmc
 import dash_bootstrap_components as dbc
 import pandas as pd
-from dash import html
+from dash import html, dcc, Input, Output
 from dash_iconify import DashIconify
+import plotly.graph_objects as go
 
 from main import CAT_DB
 from categories_db import CatDBSchema
 from utils import create_table
+from element_ids import CatIDs
 
 dash.register_page(__name__)
 
@@ -32,8 +34,8 @@ def _create_group_card(group_name: str,
                 # )
             ], position='apart')
         ], withBorder=True, className="category-card-header"),
-        dmc.Table(create_table(cat_df))
-    ], withBorder=True, shadow="md", radius="md", className="category-card")
+        html.Div(dmc.Table(create_table(cat_df)), className='category-card')
+    ], withBorder=True, shadow="md", radius="md")#, className="category-card")
 
 
 def _create_category_card_grid():
@@ -49,6 +51,36 @@ def _create_category_card_grid():
     return cards
 
 
+def _create_pie_chart(group_or_group_name: str):
+    if group_or_group_name == 'group':
+        budgets = [(name, CAT_DB.get_group_budget(name).budget.sum()) for name in CAT_DB.get_group_names()]
+    else:
+        budgets = [(name, CAT_DB.get_category_budget(name)) for name in
+                   CAT_DB.get_categories_in_group(group_or_group_name)]
+
+    chart = go.Pie(labels=[name for name, _ in budgets],
+                   values=[budget for _, budget in budgets])
+
+    return go.Figure(data=[chart])
+
+
+def _create_category_pie_chart_col():
+    groups_title = dmc.Title('Groups', align='center')
+    graph_groups = _create_pie_chart('group')
+    graph_groups_component = dcc.Graph(id=CatIDs.PIE_CHART_GROUPS, figure=graph_groups)
+    cat_title = dmc.Title('Categories', style={'margin-top': '20px'}, align='center')
+    groups = CAT_DB.get_group_names()
+    group_cat_dd = dcc.Dropdown(id=CatIDs.CHOOSE_GROUP, clearable=False,
+                                options=groups,
+                                value=groups[0],
+                                style={'margin-top': '20px'})
+    graph_categories = _create_pie_chart(groups[0])
+    graph_categories_component = dcc.Graph(id=CatIDs.PIE_CHART_CAT, figure=graph_categories)
+
+    return [groups_title, graph_groups_component,
+            cat_title, group_cat_dd, graph_categories_component]
+
+
 def _create_layout():
     return dbc.Container([
         dbc.Row([
@@ -58,9 +90,18 @@ def _create_layout():
             dbc.Col([
                 dmc.Grid(_create_category_card_grid(), gutter='xs')
             ], width=6),
-            dbc.Col([], width=6)
+            dbc.Col(_create_category_pie_chart_col(), width=6)
         ]),
     ], fluid=True)
 
 
 layout = _create_layout
+
+
+@dash.callback(
+    Output(CatIDs.PIE_CHART_CAT, "figure"),
+    Input(CatIDs.CHOOSE_GROUP, "value"),
+    config_prevent_initial_callbacks=True
+)
+def update_pie_chart(group_or_cat):
+    return _create_pie_chart(group_or_cat)

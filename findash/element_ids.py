@@ -56,6 +56,12 @@ class BreakdownIDs:
     BUDGET_USAGE_DD = 'budget_usage_dd'
 
 
+class CatIDs:
+    CHOOSE_GROUP = 'group_or_cat_dd'
+    PIE_CHART_GROUPS = 'pie_chart'
+    PIE_CHART_CAT = 'pie_chart_cat'
+
+
 class GeneralIDs:
     ERROR_MODAL = 'error_modal'
     ERROR_MODAL_CLOSE_BTN = 'error_modal_close_btn'
