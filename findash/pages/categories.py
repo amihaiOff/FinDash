@@ -35,7 +35,7 @@ def _create_group_card(group_name: str,
             ], position='apart')
         ], withBorder=True, className="category-card-header"),
         html.Div(dmc.Table(create_table(cat_df)), className='category-card')
-    ], withBorder=True, shadow="md", radius="md")#, className="category-card")
+    ], withBorder=True, shadow="md", radius="md")
 
 
 def _create_category_card_grid():
@@ -65,10 +65,11 @@ def _create_pie_chart(group_or_group_name: str):
 
 
 def _create_category_pie_chart_col():
-    groups_title = dmc.Title('Groups', align='center')
+    groups_title = dmc.Title('Groups', align='center', className='section-title')
     graph_groups = _create_pie_chart('group')
     graph_groups_component = dcc.Graph(id=CatIDs.PIE_CHART_GROUPS, figure=graph_groups)
-    cat_title = dmc.Title('Categories', style={'margin-top': '20px'}, align='center')
+    cat_title = dmc.Title('Categories', style={'margin-top': '20px'}, align='center',
+                          className='section-title')
     groups = CAT_DB.get_group_names()
     group_cat_dd = dcc.Dropdown(id=CatIDs.CHOOSE_GROUP, clearable=False,
                                 options=groups,
@@ -84,7 +85,7 @@ def _create_category_pie_chart_col():
 def _create_layout():
     return dbc.Container([
         dbc.Row([
-            dbc.Row([html.H1("Categories")]),
+            dbc.Row([html.H1("Categories", className='section-title')]),
         ]),
         dbc.Row([
             dbc.Col([

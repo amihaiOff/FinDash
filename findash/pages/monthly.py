@@ -16,8 +16,7 @@ from element_ids import MonthlyIDs
 from categories_db import CatDBSchema
 from transactions_db import TransDBSchema
 from utils import SHEKEL_SYM, conditional_coloring, get_current_year_month, \
-    create_table, format_date_col_for_display
-
+    create_table, format_date_col_for_display, format_currency_num
 
 dash.register_page(__name__)
 
@@ -129,7 +128,7 @@ def _create_banner_card(title: str,
                         id: str) -> dbc.Card:
     return dbc.Card([
         html.H1(title),
-        html.H3(f"{value:,.0f}{SHEKEL_SYM}"),
+        html.H3(f"{format_currency_num(value)}"),
         html.P(subtitle, style={'color': color})],
         body=True,
         id=id,
@@ -272,7 +271,7 @@ def cat_content(title: str,
             dmc.Col(
                 dmc.Progress(value=progress_val, label=f"{usage}/{cat_budget}",
                              size=size, color=color, id=f'{title}-progress'), span=5),
-            dmc.Col(dmc.Text(f'Remaining: {cat_budget-usage:,.0f}'), span=2),
+            dmc.Col(dmc.Text(f'Remaining: {format_currency_num(cat_budget-usage)}'), span=2),
             dbc.Tooltip(f"{usage}/{cat_budget}", target=f'{title}-progress', placement='bottom')
         ]
 

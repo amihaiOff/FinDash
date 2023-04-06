@@ -6,7 +6,7 @@ from enum import Enum
 import numpy as np
 import pandas as pd
 import yaml
-from typing import Any, Dict, Tuple, Optional, List
+from typing import Any, Dict, Tuple, Optional, List, Union
 from dash import html
 
 
@@ -326,3 +326,7 @@ def detect_changes_in_table(df: pd.DataFrame,
             )
 
     return changes
+
+
+def format_currency_num(num: Union[int, float, str]):
+    return f'{num:,.0f}{SHEKEL_SYM}'

@@ -243,6 +243,7 @@ def _update_table_callback(cat: str,
         return records, dash.no_update, dash.no_update, dash.no_update
 
     if ctx.triggered_id == TransIDs.ROW_DEL_PLACEDHOLDER:
+        # this is only true when confirmed delete row
         return TRANS_DB.get_records(), dash.no_update, dash.no_update, dash.no_update
 
     to_open_modal = False
@@ -261,6 +262,11 @@ def _update_table_callback(cat: str,
             raise PreventUpdate
         to_open_modal, row_del_cnf_diag, change = _trans_table_callback_trigger(data, data_prev)
         if change is not None:
+            # this is only true when deleting row.
+            # row_del_cnf_diag is True only when changes are not None
+            # so row_del_cnf_diag is redundant.
+            # also we have to return records here which don't include the deleted row
+            # but we don't wait for the user to confirm the deletion.
             return TRANS_DB.get_records(), False, True, change.to_json()
 
     elif dash.callback_context.triggered_id in [TransIDs.MODAL_CAT_CHANGE_YES,
@@ -312,7 +318,7 @@ def _add_row(n_clicks):
     :return: list of rows with new row appended
     """
     if n_clicks > 0:
-        change = get_add_row_change_obj()
+        change = get_add_row_change_obj()  # todo define the change obj here
         TRANS_DB.submit_change(change)
     return TRANS_DB.get_records()
 
