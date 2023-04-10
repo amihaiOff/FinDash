@@ -14,6 +14,7 @@ from main import CAT_DB, TRANS_DB
 from accounts import ACCOUNTS
 from element_ids import MonthlyIDs
 from categories_db import CatDBSchema
+from shared_elements import create_page_heading
 from transactions_db import TransDBSchema
 from utils import SHEKEL_SYM, conditional_coloring, get_current_year_month, \
     create_table, format_date_col_for_display, format_currency_num
@@ -21,19 +22,14 @@ from utils import SHEKEL_SYM, conditional_coloring, get_current_year_month, \
 dash.register_page(__name__)
 
 
-def _create_month_banner():
-    return html.H1(
-        id=MonthlyIDs.MONTHLY_BANNER,
-    )
-
-
 def _create_month_dd():
     months = TRANS_DB[TransDBSchema.DATE].dt.strftime('%Y-%m')
     months = months.unique().tolist()
-    return dcc.Dropdown(
+    return dmc.Select(
         id=MonthlyIDs.MONTHLY_DD,
-        options=months,
+        data=months,
         value=None,
+        size='lg',
         clearable=False
     )
 
@@ -116,7 +112,7 @@ def _create_stat_headings() -> Tuple[dmc.Group, Tuple[dbc.Popover, dbc.Popover]]
         income_card,
         expenses_card,
         savings_card,
-    ])
+    ], position='apart')
 
     return group, (checking_popover, income_popover)
 
@@ -127,7 +123,7 @@ def _create_banner_card(title: str,
                         color: str,
                         id: str) -> dbc.Card:
     return dbc.Card([
-        html.H1(title),
+        html.H2(title),
         html.H3(f"{format_currency_num(value)}"),
         html.P(subtitle, style={'color': color})],
         body=True,
@@ -141,7 +137,7 @@ def _create_checking_card():
     checking_total = _calculate_checking_total()
 
     checking_card = dbc.Card([
-                    html.H1("Checking"),
+                    html.H2("Checking"),
                     html.H3(f"{checking_total:,.0f}{SHEKEL_SYM}"),
                     html.P("+12% MoM(?)", style={'color': 'green'})], # todo - think of what the subtitle needs to be
                     body=True,
@@ -350,8 +346,11 @@ def _create_layout():
         dcc.Location(id=MonthlyIDs.URL, refresh=True),
         *popovers,
         dbc.Row([
-           dbc.Col([_create_month_banner()], width=8),
-           dbc.Col(id=MonthlyIDs.MONTHLY_DD_COL, width=2)]),
+            dmc.Group([
+               dbc.Col([create_page_heading('Monthly Budget')], width=8),
+               dbc.Col(id=MonthlyIDs.MONTHLY_DD_COL, width=2)],
+                position='apart'),
+            ]),
         dmc.Space(h=30),
         dbc.Row([
             stat_headings
@@ -389,14 +388,13 @@ def _change_month(dd_value, month_store):
 
 @dash.callback(
     Output(MonthlyIDs.MONTHLY_DD_COL, 'children'),
-    Output(MonthlyIDs.MONTHLY_BANNER, 'children'),
     Input(MonthlyIDs.DUMMY_DIV, 'n_clicks'),
     State(MonthlyIDs.MONTH_STORE, 'data'),
 )
 def update_month_dd(_, month_store):
     dd = _create_month_dd()
     dd.value = month_store
-    return [dd], month_store
+    return [dd]
 
 
 @dash.callback(

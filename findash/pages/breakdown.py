@@ -8,6 +8,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from main import TRANS_DB, CAT_DB
+from shared_elements import create_page_heading
 from transactions_db import TransDBSchema
 from categories_db import CatDBSchema
 from element_ids import BreakdownIDs
@@ -113,6 +114,10 @@ def _create_budget_usage(group_name: str):
 
 def _create_layout():
     return dbc.Container([
+        dbc.Row([
+           create_page_heading('Breakdown')
+        ]),
+
         dbc.Row([
            dbc.Col(dcc.Graph(figure=_create_under_over_card()), width=10),
         ]),

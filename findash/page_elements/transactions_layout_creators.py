@@ -223,9 +223,17 @@ def create_trans_table(id: str,
                                     'font-family': 'sans-serif',
                                     'font-size': '12px',
                                     'padding-right': '5px',
-                                    'padding-left': '5px'
-                                }
-                                )
+                                    'padding-left': '5px',
+                                    'background-color': 'white',
+                                    'border-top': 'none',
+                                    # 'border-bottom': 'none',
+                                    'border-left': 'none',
+                                    'border-right': 'none',
+                                },
+                                style_header={
+                                    'font-weight': 'bold',
+                                    'border-bottom': '1px'
+                                })
 
 
 def _create_main_trans_table() -> dash_table.DataTable:

@@ -350,6 +350,8 @@ def _apply_changes_to_trans_db_cat_col(change: Change,
         # None is not a valid category
         change.current_value = ''
 
+    # here should be just submit change
+
     if all_trans:  # todo move logic into trans_db
         payee = TRANS_DB.loc[change['row_ind'], TransDBSchema.PAYEE]
         TRANS_DB.loc[TRANS_DB[TransDBSchema.PAYEE] == payee, col]\

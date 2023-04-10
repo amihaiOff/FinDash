@@ -10,6 +10,7 @@ import plotly.graph_objects as go
 
 from main import CAT_DB
 from categories_db import CatDBSchema
+from shared_elements import create_page_heading
 from utils import create_table
 from element_ids import CatIDs
 
@@ -84,6 +85,9 @@ def _create_category_pie_chart_col():
 
 def _create_layout():
     return dbc.Container([
+        dbc.Row([
+            create_page_heading('Spending Categories')
+        ]),
         dbc.Row([
             dbc.Row([html.H1("Categories", className='section-title')]),
         ]),

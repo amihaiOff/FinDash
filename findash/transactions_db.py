@@ -371,7 +371,6 @@ class TransactionsDBParquet:
         self._update_data(col_name, index, value)
 
     def submit_change(self, change: Change):
-
         if change.change_type == ChangeType.ADD_ROW:
             self.add_new_row()
 
@@ -381,6 +380,8 @@ class TransactionsDBParquet:
 
         elif change.change_type == ChangeType.CHANGE_DATA:
             if change.col_name == TransDBSchema.CAT:
+                # move all trans logic to here.
+                # add an optional parameter in the change object
                 self.update_cat_col_data(change.col_name, change.row_ind,
                                          change.current_value)
             else:
@@ -414,8 +415,10 @@ class TransactionsDBParquet:
         prev_value = self._db.loc[index, col_name]
         self._db.loc[index, col_name] = value
 
+        # a change in inflow\outflow occured, should also change amount
         if col_name in [TransDBSchema.OUTFLOW, TransDBSchema.INFLOW]:
             self._db.loc[index, TransDBSchema.AMOUNT] = value
+
         # trans moved to another month - save original month to save removal
         if (
             isinstance(prev_value, pd.Timestamp)

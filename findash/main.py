@@ -153,8 +153,9 @@ if 'TRANS_DB' not in globals():
 
 def setup_app():
     app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP,
-                                               dbc.themes.MATERIA,
-                                               dbc.icons.FONT_AWESOME],
+                                               # dbc.themes.MATERIA,
+                                               # dbc.icons.FONT_AWESOME,
+                                               ],
                use_pages=True, suppress_callback_exceptions=True,
                )
     setup_pages_container(app)

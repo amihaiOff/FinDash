@@ -1,3 +1,8 @@
+* {
+    font-family: "open sans", sans-serif;
+}
+
+
 /* This creates a skinny side bar fixed to the left of the page */
 .sidebar {
     position: fixed;
@@ -105,4 +110,12 @@
 
 .section-title {
     color: dimgray;
+}
+
+
+.page-heading {
+    font-size: 48pt;
+    font-weight: 600;
+    color: #76a2cf;
+    margin-bottom: 1rem;
 }
