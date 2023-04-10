@@ -1,4 +1,4 @@
-from typing import Dict, Tuple, Optional
+from typing import Dict, Tuple, Optional, List
 
 import dash
 import numpy as np
@@ -17,7 +17,7 @@ from categories_db import CatDBSchema
 from shared_elements import create_page_heading
 from transactions_db import TransDBSchema
 from utils import SHEKEL_SYM, conditional_coloring, get_current_year_month, \
-    create_table, format_date_col_for_display, format_currency_num
+    create_table, format_date_col_for_display, format_currency_num, safe_divide
 
 dash.register_page(__name__)
 
@@ -236,12 +236,39 @@ LOW_USAGE_THR = 85
 HIGH_USAGE_THR = 100
 
 
+def _get_accordion_control_children(title, text_weight, usage, cat_budget, progress_val,
+                                    size, color, usage_pct, num_green, num_yellow, num_red):
+    shared_children = _get_shared_accordion_children(title, text_weight, usage, cat_budget,
+                                                     progress_val, size, color, usage_pct)
+    additional_children = [
+        dmc.Col(dmc.Text(f'{num_green}'), span=1),
+        dmc.Col(dmc.Text(f'{num_yellow}'), span=1),
+        dmc.Col(dmc.Text(f'{num_red}'), span=1)
+    ]
+
+    return shared_children + additional_children
+
+
+def _get_shared_accordion_children(title, text_weight, usage, cat_budget, progress_val, size, color, usage_pct):
+    return [
+            dmc.Col(dmc.Text(f"{title}", weight=text_weight), span=2),
+            dmc.Col(
+                dmc.Progress(value=progress_val, label=f"{usage}/{cat_budget}",
+                             size=size, color=color, id=f'{title}-progress'), span=5),
+            dmc.Col(dmc.Text(f"{usage_pct}%", align="center"), span=1),
+            dmc.Col(dmc.Text(f'{format_currency_num(cat_budget-usage)}'), span=1),
+            dbc.Tooltip(f"{usage}/{cat_budget}", target=f'{title}-progress', placement='bottom')
+        ]
+
+
 def cat_content(title: str,
                 usage: float,
                 cat_budget: float,
                 button_id: Optional[dict] = None,
                 size: str = 'lg',
-                text_weight=500,):
+                text_weight=500,
+                num_colors: Optional[List[int]] = None
+                ):
     """
 
     create content for category progress line
@@ -260,16 +287,12 @@ def cat_content(title: str,
         'red': (HIGH_USAGE_THR, np.inf)
     })
     progress_val = min(100, usage_pct)
-    grid_children = [
-            dmc.Col(dmc.Text(f"{title}", weight=text_weight), span=2),
-            dmc.Col(dmc.Text(f"{usage_pct}% budget used", align="center"),
-                    span=2),
-            dmc.Col(
-                dmc.Progress(value=progress_val, label=f"{usage}/{cat_budget}",
-                             size=size, color=color, id=f'{title}-progress'), span=5),
-            dmc.Col(dmc.Text(f'Remaining: {format_currency_num(cat_budget-usage)}'), span=2),
-            dbc.Tooltip(f"{usage}/{cat_budget}", target=f'{title}-progress', placement='bottom')
-        ]
+    if num_colors is None:
+        grid_children = _get_shared_accordion_children(title, text_weight, usage, cat_budget,
+                                                       progress_val, size, color, usage_pct)
+    else:
+        grid_children = _get_accordion_control_children(title, text_weight, usage, cat_budget,
+                                                        usage_pct, size, color, usage_pct, *num_colors)
 
     if button_id is not None:
         grid_children.append(dmc.Col(dmc.Button('View',
@@ -295,9 +318,19 @@ def accordion_item(group_title: str,
     :param cat_stats: dictionary of cat_name: (usage, budget)
     :return:
     """
+    num_green, num_yellow, num_red = 0, 0, 0
+    for usage, budget in cat_stats.values():
+        if safe_divide(usage, budget)*100 < LOW_USAGE_THR:
+            num_green += 1
+        elif safe_divide(usage, budget)*100 < HIGH_USAGE_THR:
+            num_yellow += 1
+        else:
+            num_red += 1
+
     return dmc.AccordionItem([
         dmc.AccordionControl(cat_content(group_title, group_usage, group_budget,
-                                         size='xl', text_weight=700)),
+                                         size='xl', text_weight=700,
+                                         num_colors=[num_green, num_yellow, num_red])),
         dmc.AccordionPanel([
             cat_content(title, usage, budget,
                         button_id={'type': 'drawer-btn', 'index': title})
@@ -361,6 +394,16 @@ def _create_layout():
                 dmc.Drawer(id=MonthlyIDs.TRANS_DRAWER, size='70%',
                            style={'overflowY': 'auto', 'height': '100%'})
             ),
+            dbc.Row([
+                html.Div([
+                    dbc.Col([
+                        dmc.Text('Used(%)')
+                    ]),
+                    dbc.Col([
+                        dmc.Text(f'Remaining({SHEKEL_SYM})')
+                    ])
+                ], style={'position': 'absolute', 'right': '0'}),
+            ]),
             dmc.AccordionMultiple(
                 children=create_accordion_items())
         ])

@@ -330,3 +330,7 @@ def detect_changes_in_table(df: pd.DataFrame,
 
 def format_currency_num(num: Union[int, float, str]):
     return f'{num:,.0f}{SHEKEL_SYM}'
+
+
+def safe_divide(numerator, denominator):
+    return 0 if denominator == 0 else numerator / denominator
