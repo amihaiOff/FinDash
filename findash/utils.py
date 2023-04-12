@@ -7,8 +7,7 @@ import numpy as np
 import pandas as pd
 import yaml
 from typing import Any, Dict, Tuple, Optional, List, Union
-from dash import html
-
+from dash import html, dash_table
 
 SHEKEL_SYM = '₪'
 START_DATE_DEFAULT = pd.to_datetime('1900-01-01')
@@ -235,6 +234,17 @@ def create_table(df: pd.DataFrame):
     rows = [html.Tr([html.Td(cell) for cell in row]) for row in values]
     table = [html.Thead(header), html.Tbody(rows)]
     return table
+
+
+def create_cat_table(df: pd.DataFrame, for_id: Optional[str] = None):
+    return dash_table.DataTable(
+        id={'type': 'cat-table', 'index': for_id},
+        data=df.to_dict('records'),
+        columns=[{'name': col, 'id': col} for col in df.columns],
+        style_cell={'textAlign': 'left',
+                    'border-right': 'none'},
+        style_header={'fontWeight': 'bold'}
+    )
 
 
 def get_change_type(df: pd.DataFrame, df_prev: pd.DataFrame):

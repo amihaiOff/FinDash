@@ -11,7 +11,7 @@ import plotly.graph_objects as go
 from main import CAT_DB
 from categories_db import CatDBSchema
 from shared_elements import create_page_heading
-from utils import create_table
+from utils import create_table, format_currency_num, create_cat_table
 from element_ids import CatIDs
 
 dash.register_page(__name__)
@@ -27,7 +27,7 @@ def _create_group_card(group_name: str,
         dmc.CardSection([
             dmc.Group([
                 dmc.Text(group_name, size="md", style={'padding-left': '5px'}),
-                dmc.Text(group_budget, size="md", style={'padding-right': '5px'}),
+                dmc.Text(format_currency_num(group_budget), size="md", style={'padding-right': '5px'}),
                 # dmc.ActionIcon(
                 #     DashIconify(icon="carbon:overflow-menu-horizontal"),
                 #     color="gray",
@@ -35,7 +35,7 @@ def _create_group_card(group_name: str,
                 # )
             ], position='apart')
         ], withBorder=True, className="category-card-header"),
-        html.Div(dmc.Table(create_table(cat_df)), className='category-card')
+        html.Div(dmc.Table(create_cat_table(cat_df, for_id=group_name)), className='category-card')
     ], withBorder=True, shadow="md", radius="md")
 
 
@@ -48,7 +48,7 @@ def _create_category_card_grid():
         cards.append(dmc.Col([_create_group_card(group,
                                                  group_budget,
                                                  categories,
-                                                 categories_budgets)], span=4))
+                                                 categories_budgets)], span=6))
     return cards
 
 

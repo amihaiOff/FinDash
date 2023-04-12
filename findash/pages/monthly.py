@@ -241,9 +241,9 @@ def _get_accordion_control_children(title, text_weight, usage, cat_budget, progr
     shared_children = _get_shared_accordion_children(title, text_weight, usage, cat_budget,
                                                      progress_val, size, color, usage_pct)
     additional_children = [
-        dmc.Col(dmc.Text(f'{num_green}'), span=1),
-        dmc.Col(dmc.Text(f'{num_yellow}'), span=1),
-        dmc.Col(dmc.Text(f'{num_red}'), span=1)
+        dmc.Col(dmc.Text(f'{num_green}', color='green'), span=1),
+        dmc.Col(dmc.Text(f'{num_yellow}', color='yellow'), span=1),
+        dmc.Col(dmc.Text(f'{num_red}', color='red'), span=1)
     ]
 
     return shared_children + additional_children
@@ -305,10 +305,6 @@ def cat_content(title: str,
 
     return dmc.Grid(grid_children, gutter="xs")
 
-# def _create_progress_sections(value):
-#     today = datetime.datetime.today().day
-#     today_pct = today *100 / 30
-#
 
 def accordion_item(group_title: str,
                    group_usage: int,
@@ -394,18 +390,19 @@ def _create_layout():
                 dmc.Drawer(id=MonthlyIDs.TRANS_DRAWER, size='70%',
                            style={'overflowY': 'auto', 'height': '100%'})
             ),
-            dbc.Row([
-                html.Div([
-                    dbc.Col([
-                        dmc.Text('Used(%)')
-                    ]),
-                    dbc.Col([
-                        dmc.Text(f'Remaining({SHEKEL_SYM})')
-                    ])
-                ], style={'position': 'absolute', 'right': '0'}),
-            ]),
-            dmc.AccordionMultiple(
-                children=create_accordion_items())
+            html.Div([
+                dbc.Row([
+                        dbc.Col([dmc.Text('Used(%)')]),
+                        dbc.Col([dmc.Text(f'Left({SHEKEL_SYM})')]),
+                        dbc.Col([dmc.Text('Under 85%')]),
+                        dbc.Col([dmc.Text('85%-100%')]),
+                        dbc.Col([dmc.Text('Over 100%')])
+                ], style={'position': 'absolute', 'right': '27%', 'top': '0'}),
+                dbc.Row([
+                    dmc.AccordionMultiple(
+                        children=create_accordion_items())
+                ], style={'margin-top': '15px'})
+            ], style={'position': 'relative'}),
         ])
     ], fluid=True)
 
