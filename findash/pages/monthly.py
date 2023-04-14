@@ -9,6 +9,7 @@ import dash_mantine_components as dmc
 
 import pandas as pd
 from dash.exceptions import PreventUpdate
+from dash_iconify import DashIconify
 
 from main import CAT_DB, TRANS_DB
 from accounts import ACCOUNTS
@@ -353,6 +354,22 @@ def create_cat_usage(group: pd.core.groupby.generic.DataFrameGroupBy):
 
 def create_accordion_items():
     accordion_items = []
+    item = dmc.AccordionItem([
+        dmc.AccordionControl([
+            dmc.Grid([
+                dmc.Col(dmc.Text(""), span=2),
+                dmc.Col(dmc.Text(""), span=5),
+                dmc.Col([dmc.Text('Used(%)')], span=1),
+                dmc.Col([dmc.Text(f'Left({SHEKEL_SYM})')], span=1),
+                dmc.Col([dmc.Text('Under 85%')], span=1),
+                dmc.Col([dmc.Text('85%-100%')], span=1),
+                dmc.Col([dmc.Text('Over 100%')], span=1),
+            ])
+        ], disabled=True, chevron=DashIconify(icon="none")),
+        dmc.AccordionPanel([])
+    ], value=str(np.random.randint(1000)))
+
+    accordion_items.append(item)
     for group_name, group in CAT_DB.get_groups_as_groupby():
         group_budget = group[CatDBSchema.BUDGET].sum()
         group_usage = TRANS_DB.specific_month.get_data_by_group(group_name)[
@@ -360,6 +377,7 @@ def create_accordion_items():
         group_usage = int(group_usage)
 
         categories = create_cat_usage(group)
+
         accordion_items.append(accordion_item(group_name, group_usage,
                                               group_budget, categories))
 
@@ -391,13 +409,6 @@ def _create_layout():
                            style={'overflowY': 'auto', 'height': '100%'})
             ),
             html.Div([
-                dbc.Row([
-                        dbc.Col([dmc.Text('Used(%)')]),
-                        dbc.Col([dmc.Text(f'Left({SHEKEL_SYM})')]),
-                        dbc.Col([dmc.Text('Under 85%')]),
-                        dbc.Col([dmc.Text('85%-100%')]),
-                        dbc.Col([dmc.Text('Over 100%')])
-                ], style={'position': 'absolute', 'right': '27%', 'top': '0'}),
                 dbc.Row([
                     dmc.AccordionMultiple(
                         children=create_accordion_items())

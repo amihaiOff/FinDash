@@ -5,13 +5,12 @@ import dash_mantine_components as dmc
 import dash_bootstrap_components as dbc
 import pandas as pd
 from dash import html, dcc, Input, Output
-from dash_iconify import DashIconify
 import plotly.graph_objects as go
 
 from main import CAT_DB
 from categories_db import CatDBSchema
 from shared_elements import create_page_heading
-from utils import create_table, format_currency_num, create_cat_table
+from utils import format_currency_num, create_cat_table
 from element_ids import CatIDs
 
 dash.register_page(__name__)
@@ -28,11 +27,6 @@ def _create_group_card(group_name: str,
             dmc.Group([
                 dmc.Text(group_name, size="md", style={'padding-left': '5px'}),
                 dmc.Text(format_currency_num(group_budget), size="md", style={'padding-right': '5px'}),
-                # dmc.ActionIcon(
-                #     DashIconify(icon="carbon:overflow-menu-horizontal"),
-                #     color="gray",
-                #     variant="transparent",
-                # )
             ], position='apart')
         ], withBorder=True, className="category-card-header"),
         html.Div(dmc.Table(create_cat_table(cat_df, for_id=group_name)), className='category-card')
@@ -94,7 +88,7 @@ def _create_layout():
         dbc.Row([
             dbc.Col([
                 dmc.Grid(_create_category_card_grid(), gutter='xs')
-            ], width=6),
+            ], width=6, style={'max-height': '110vh', 'overflow-y': 'auto'}),
             dbc.Col(_create_category_pie_chart_col(), width=6)
         ]),
     ], fluid=True)

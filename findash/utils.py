@@ -8,6 +8,7 @@ import pandas as pd
 import yaml
 from typing import Any, Dict, Tuple, Optional, List, Union
 from dash import html, dash_table
+from dash.dash_table.Format import Format, Symbol
 
 SHEKEL_SYM = '₪'
 START_DATE_DEFAULT = pd.to_datetime('1900-01-01')
@@ -237,14 +238,23 @@ def create_table(df: pd.DataFrame):
 
 
 def create_cat_table(df: pd.DataFrame, for_id: Optional[str] = None):
+    cat_col = {'name': 'Category', 'id': 'Category', 'type': 'text', 'editable': True}
+    budget_col = {'name': 'Budget', 'id': 'Budget', 'type': 'numeric', 'editable': True,
+                  'format': Format(group=',').symbol(Symbol.yes).symbol_suffix(SHEKEL_SYM)}
+
     return dash_table.DataTable(
         id={'type': 'cat-table', 'index': for_id},
         data=df.to_dict('records'),
-        columns=[{'name': col, 'id': col} for col in df.columns],
+        columns=[cat_col, budget_col],
         style_cell={'textAlign': 'left',
-                    'border-right': 'none'},
+                    'border-right': 'none',
+                    'border-left': 'none'},
         style_header={'fontWeight': 'bold'}
     )
+
+
+# col_def['format'] = Format(group=',').symbol(Symbol.yes).symbol_suffix(
+#     SHEKEL_SYM)
 
 
 def get_change_type(df: pd.DataFrame, df_prev: pd.DataFrame):
