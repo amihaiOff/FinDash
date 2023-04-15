@@ -389,15 +389,6 @@ class TransactionsDBParquet:
 
         self.change_list.append(change)
 
-    def _get_row_ind_full_table(self, change: Change):
-        """
-        When making changes on a filtered table, the row index will not be aligned with the full unfiltered table in the
-        backend. This function returns the correct row index in the full table.
-        :param change:
-        :return:
-        """
-
-
     def undo(self):
         pass
 

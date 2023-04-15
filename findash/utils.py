@@ -85,14 +85,14 @@ class ChangeType(Enum):
 @dataclass
 class Change:
     ROW_IND = 'row_ind'
-    ROW_IND_FULL_TABLE = 'row_ind_full_table'
+    # TRANS_ID = 'trans_id'
     COL_NAME = 'col_name'
     CURRENT_VALUE = 'current_value'
     PREV_VALUE = 'prev_value'
     CHANGE_TYPE = 'change_type'
 
     row_ind: Optional[int]
-    row_ind_full_table: Optional[int]
+    # trans_id: Optional[str]
     col_name: Optional[str]
     current_value: Optional[str]
     prev_value: Optional[str]
@@ -124,8 +124,16 @@ class Change:
     @classmethod
     def from_dict(cls, change_dict: dict):
         curr_val, prev_val = change_dict[cls.CURRENT_VALUE], change_dict[cls.PREV_VALUE]
-        curr_val = change_dict[cls.CURRENT_VALUE] if not isinstance(curr_val, dict) else pd.Series(curr_val)
-        prev_val = change_dict[cls.PREV_VALUE] if not isinstance(prev_val, dict) else pd.Series(prev_val)
+        curr_val = (
+            pd.Series(curr_val)
+            if isinstance(curr_val, dict)
+            else change_dict[cls.CURRENT_VALUE]
+        )
+        prev_val = (
+            pd.Series(prev_val)
+            if isinstance(prev_val, dict)
+            else change_dict[cls.PREV_VALUE]
+        )
         return cls(
             row_ind=change_dict[cls.ROW_IND],
             col_name=change_dict[cls.COL_NAME],
@@ -259,12 +267,11 @@ def create_cat_table(df: pd.DataFrame, for_id: Optional[str] = None):
 
 def get_change_type(df: pd.DataFrame, df_prev: pd.DataFrame):
     if len(df) > len(df_prev):
-        change_type = ChangeType.ADD_ROW
+        return ChangeType.ADD_ROW
     elif len(df) < len(df_prev):
-        change_type = ChangeType.DELETE_ROW
+        return ChangeType.DELETE_ROW
     else:
-        change_type = ChangeType.CHANGE_DATA
-    return change_type
+        return ChangeType.CHANGE_DATA
 
 
 def get_add_row_change_obj():
@@ -293,8 +300,7 @@ def _get_removed_row(df: pd.DataFrame, df_prev: pd.DataFrame):
 
 def detect_changes_in_table(df: pd.DataFrame,
                             df_previous: pd.DataFrame,
-                            row_id_name: Optional[str] = None) \
-        -> Optional[List[Change]]:
+                            ) -> Optional[List[Change]]:
     """
      Modified from: https://community.plotly.com/t/detecting-changed-cell-in-editable-datatable/26219/2
     :param df:
@@ -302,12 +308,12 @@ def detect_changes_in_table(df: pd.DataFrame,
     :param row_id_name:
     :return:
     """
-
     change_type = get_change_type(df, df_previous)
     if change_type == ChangeType.DELETE_ROW:
         removed_row = _get_removed_row(df, df_previous)
         return [Change(
             row_ind=removed_row.name,
+            # trans_id=removed_row[],
             col_name=None,
             current_value=None,
             prev_value=removed_row,
