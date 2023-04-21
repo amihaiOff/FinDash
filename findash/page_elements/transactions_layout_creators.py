@@ -37,6 +37,9 @@ def setup_table_cols(cols_subset: Optional[List[str]] = None) -> List[dict]:
                        'hideable': True,
                        'deletable': False}
 
+            if col_type == 'icon':
+                col_def['presentation'] = 'markdown'
+
             if col_type == 'date':
                 col_def['type'] = 'datetime'
 
@@ -59,18 +62,6 @@ def setup_table_cols(cols_subset: Optional[List[str]] = None) -> List[dict]:
             # trans_df_cols.append(col_def)
             trans_df_cols[col_order.index(col)] = col_def
     return trans_df_cols
-
-# def _create_insert_file_modal() -> dbc.Modal:
-#     """
-#
-#     :return:
-#     """
-#     return dbc.Modal(
-#         title='Insert Transactions',
-#         id=TransIDs.INSERT_FILE_MODAL,
-#         children=[
-#             dmc.Text()]
-#     )
 
 
 def _create_category_change_modal() -> dmc.Modal:
@@ -195,6 +186,7 @@ def create_trans_table(id: str,
                                 export_format=export_format,
                                 export_headers='display',
                                 row_selectable=row_selectable,
+                                markdown_options={'html': True},
                                 sort_by=[{'column_id': TransDBSchema.DATE,
                                           'direction': 'desc'}],
                                 page_size=50,

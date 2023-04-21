@@ -309,6 +309,9 @@ def detect_changes_in_table(df: pd.DataFrame,
     :return:
     """
     change_type = get_change_type(df, df_previous)
+    if change_type == ChangeType.ADD_ROW:
+        return [get_add_row_change_obj()]
+
     if change_type == ChangeType.DELETE_ROW:
         removed_row = _get_removed_row(df, df_previous)
         return [Change(

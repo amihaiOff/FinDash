@@ -21,6 +21,7 @@ This is the recorded history of the transactions.
 @dataclass
 class TransDBSchema:
     ID: str = 'id'
+    # DELETE: str = 'delete'
     DATE: str = 'date'
     PAYEE: str = 'payee'
     CAT: str = 'cat'
@@ -36,6 +37,7 @@ class TransDBSchema:
     @classmethod
     def col_display_name_mapping(cls):
         return {
+            # cls.DELETE: '',
             cls.DATE: 'Date',
             cls.PAYEE: 'Payee',
             cls.CAT: 'Category',
@@ -58,9 +60,11 @@ class TransDBSchema:
 
     @classmethod
     def get_col_order_for_table(cls):
-        return [TransDBSchema.DATE, TransDBSchema.PAYEE, TransDBSchema.AMOUNT,
-                TransDBSchema.INFLOW, TransDBSchema.OUTFLOW, TransDBSchema.CAT,
-                TransDBSchema.MEMO, TransDBSchema.ACCOUNT]
+        return [
+            # TransDBSchema.DELETE,
+                TransDBSchema.DATE, TransDBSchema.PAYEE,
+                TransDBSchema.AMOUNT, TransDBSchema.INFLOW, TransDBSchema.OUTFLOW,
+                TransDBSchema.CAT, TransDBSchema.MEMO, TransDBSchema.ACCOUNT]
 
     @classmethod
     def get_cols_for_trans_drawer(cls) -> List[str]:
@@ -104,6 +108,7 @@ class TransDBSchema:
             'str': [cls.PAYEE, cls.MEMO],
             'numeric': [cls.AMOUNT, cls.INFLOW, cls.OUTFLOW],
             'cat': [cls.CAT, cls.ACCOUNT],
+            # 'icon': [cls.DELETE]
         }
 
     @classmethod
@@ -354,7 +359,7 @@ class TransactionsDBParquet:
         self._sort_db()
         self.save_db(months)
 
-    def update_cat_col_data(self, col_name: str, index: int, value: Any):
+    def _update_cat_col_data(self, col_name: str, index: int, value: Any):
         """
         when updating a category we also might need to change the category group
         :param col_name:
@@ -362,6 +367,9 @@ class TransactionsDBParquet:
         :param value:
         :return:
         """
+        # None is not a valid category
+        value = '' if value is None else value
+
         # update mapping of payee to category
         payee = self._db.loc[index, TransDBSchema.PAYEE]
         if check_null(self._db.loc[index, col_name]):  # only update first time
@@ -371,6 +379,9 @@ class TransactionsDBParquet:
         self._update_data(col_name, index, value)
 
     def submit_change(self, change: Change):
+        if change.current_value == change.prev_value:
+            return
+
         if change.change_type == ChangeType.ADD_ROW:
             self.add_new_row()
 
@@ -382,8 +393,8 @@ class TransactionsDBParquet:
             if change.col_name == TransDBSchema.CAT:
                 # move all trans logic to here.
                 # add an optional parameter in the change object
-                self.update_cat_col_data(change.col_name, change.row_ind,
-                                         change.current_value)
+                self._update_cat_col_data(change.col_name, change.row_ind,
+                                          change.current_value)
             else:
                 self._update_data(change.col_name, change.row_ind, change.current_value)
 

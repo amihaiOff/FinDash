@@ -110,7 +110,8 @@ def _create_layout():
             dmc.Group([
                 _create_filtering_components(),
                 _create_add_del_row_components()
-            ], position='apart')
+            ], position='apart', style={'box-shadow': '5px 5px 5px -3px rgba(0, 0, 0, 0.5)',
+                                        'border-radius': '10px'})
         ], style={'margin-bottom': '40px'}),
         dbc.Row([
             html.Div(_create_main_trans_table(), id=TransIDs.TRANS_TBL_DIV, style={'width': '100%'})

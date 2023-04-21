@@ -1,4 +1,5 @@
 import base64
+import datetime
 import io
 from typing import List, Tuple, Union, Any, Optional
 
@@ -28,19 +29,8 @@ def _trans_table_callback_trigger(data: List[dict],
     :param data_prev:
     :return:
     """
-    to_open_modal = False
-    row_del_cnf_diag = False
     data, data_prev = pd.DataFrame(data=data), pd.DataFrame(data_prev)
     changes: List[Change] = detect_changes_in_table(data, data_prev)
-    if changes is None:
-        return to_open_modal, row_del_cnf_diag, changes
-
-    # remove row
-    if len(data) < len(data_prev):
-        row_del_cnf_diag = True
-        change = changes[0]  # guaranteed only one change when deleting row
-        change.prev_value = TRANS_DB.iloc[change.row_ind, :]
-        return to_open_modal, row_del_cnf_diag, change
 
     # change data
     # todo submit changes to db
@@ -54,28 +44,7 @@ def _trans_table_callback_trigger(data: List[dict],
             _apply_changes_to_trans_db_cat_col(change, all_trans=False,
                                                col=change['col_name'])
 
-    return to_open_modal, row_del_cnf_diag, None
-
-
-def _cat_change_modal_callback_trigger(data: List[dict],
-                                       data_prev: List[dict]) -> None:
-    """
-    logic for handling callbacks triggered by changes to cat change modal
-    :param data:
-    :param data_prev:
-    :return:
-    """
-    data, data_prev = pd.DataFrame(data=data), pd.DataFrame(data_prev)
-    changes = detect_changes_in_table(data, data_prev)
-    for change in changes:
-        if ctx.triggered_id == TransIDs.MODAL_CAT_CHANGE_NO:
-            all_trans = False
-        elif ctx.triggered_id == TransIDs.MODAL_CAT_CHANGE_YES:
-            all_trans = True
-        else:
-            raise ValueError("Invalid triggered id in cat change modal")
-        _apply_changes_to_trans_db_cat_col(change, all_trans,
-                                           col=change.col_name)
+    return
 
 
 @dash.callback(
@@ -202,20 +171,39 @@ def _add_row_callback(n_clicks):
     return TRANS_DB.get_records()
 
 
+def _calculate_data_ts_diff(data_ts) -> Optional[int]:
+    if data_ts is None:
+        return None
+
+    if isinstance(data_ts, int):
+        data_ts = datetime.datetime.fromtimestamp(data_ts / 1e3)
+    elif isinstance(data_ts, float):
+        data_ts = datetime.datetime.fromtimestamp(data_ts)
+
+    return (datetime.datetime.now() - data_ts).seconds
+
+
 @dash.callback(
     Output(TransIDs.ROW_DEL_CONFIRM_DIALOG, 'displayed'),
     Output(TransIDs.CHANGE_STORE, 'data', allow_duplicate=True),
     Input(TransIDs.TRANS_TBL, 'data'),
     Input(TransIDs.TRANS_TBL, "data_previous"),
+    State(TransIDs.TRANS_TBL, 'data_timestamp'),
     config_prevent_initial_callbacks=True
 )
-def _delete_row_callback(data, data_prev):
+def _delete_row_callback(data, data_prev, data_ts):
+    sec_diff = _calculate_data_ts_diff(data_ts)
+    print('sec diff: ', sec_diff)
+    if sec_diff is not None and sec_diff <= 1:
+        raise PreventUpdate
+
     if data is None or data_prev is None:
         raise PreventUpdate
+
     data = pd.DataFrame.from_records(data)
     data_prev = pd.DataFrame.from_records(data_prev)
     changes: List[Change] = detect_changes_in_table(data, data_prev)
-    if len(data) < len(data_prev):
+    if len(changes) == 1 and changes[0].change_type == ChangeType.DELETE_ROW:
         return True, changes[0].to_json()  # guaranteed only one change when deleting row
     else:
         return False, dash.no_update
@@ -223,16 +211,62 @@ def _delete_row_callback(data, data_prev):
 
 @dash.callback(
     Output(TransIDs.TRANS_TBL, 'data', allow_duplicate=True),
+    Output(TransIDs.TRANS_TBL, 'data_timestamp', allow_duplicate=True),
     Input(TransIDs.ROW_DEL_CONFIRM_DIALOG, 'submit_n_clicks'),
     State(TransIDs.CHANGE_STORE, 'data'),
+    State(TransIDs.TRANS_TBL, 'data_timestamp'),
     config_prevent_initial_callbacks=True
 )
-def row_del_confirm_dialog_callback(submit_n_clicks: int, change: dict):
+def row_del_confirm_dialog_callback(submit_n_clicks: int, change: dict, data_ts):
+    print(data_ts)
     if submit_n_clicks:
         TRANS_DB.submit_change(Change.from_dict(change))
+        return TRANS_DB.get_records(), datetime.datetime.now().timestamp()
+
+
+@dash.callback(
+    Output(TransIDs.TRANS_TBL, 'data', allow_duplicate=True),
+    Input(TransIDs.ROW_DEL_CONFIRM_DIALOG, 'cancel_n_clicks'),
+    config_prevent_initial_callbacks=True
+)
+def row_del_cancel_dialog_callback(cancel_n_clicks: int):
+    if cancel_n_clicks:
         return TRANS_DB.get_records()
 
-    return dash.no_update
+
+@dash.callback(
+    Output(TransIDs.TRANS_TBL, 'data', allow_duplicate=True),
+    Input(TransIDs.TRANS_TBL, "data"),
+    Input(TransIDs.TRANS_TBL, "data_previous"),
+    config_prevent_initial_callbacks=True
+)
+def change_table_callback(data, data_prev):
+    if len(data) != len(data_prev):
+        raise PreventUpdate
+
+    data = pd.DataFrame(data)
+    data_prev = pd.DataFrame(data_prev)
+    changes: List[Change] = detect_changes_in_table(data, data_prev)
+
+    for change in changes:
+        TRANS_DB.submit_change(change)
+
+    return TRANS_DB.get_records()
+
+
+@dash.callback(
+    Output(TransIDs.TRANS_TBL, 'data', allow_duplicate=True),
+    Input(TransIDs.CAT_PICKER, 'value'),
+    Input(TransIDs.GROUP_PICKER, 'value'),
+    Input(TransIDs.ACC_PICKER, 'value'),
+    Input(TransIDs.DATE_PICKER, 'value'),
+    config_prevent_initial_callbacks=True
+)
+def filter_table(cat: str,
+                 group: str,
+                 account: str,
+                 date_values: List[str]):
+    return _filter_table(cat, group, account, date_values)
 
 
 @dash.callback(
@@ -286,6 +320,7 @@ def _update_table_callback(cat: str,
     # if ctx.triggered_id == TransIDs.ROW_DEL_PLACEDHOLDER:
         # this is only true when confirmed delete row
         # return TRANS_DB.get_records(), dash.no_update, dash.no_update, dash.no_update
+    raise PreventUpdate
 
     to_open_modal = False
     row_del_cnf_diag = False
