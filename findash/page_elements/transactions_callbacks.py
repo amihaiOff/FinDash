@@ -1,4 +1,5 @@
 import base64
+import datetime
 import io
 from typing import List, Tuple, Union, Any, Optional
 
@@ -16,66 +17,8 @@ from page_elements.transactions_split_window import _create_split_input_card, \
 from transactions_db import TransDBSchema
 from transactions_importer import import_file
 from utils import detect_changes_in_table, Change, \
-    get_add_row_change_obj, START_DATE_DEFAULT
+    get_add_row_change_obj, START_DATE_DEFAULT, ChangeType
 from page_elements.transactions_layout_creators import create_trans_table
-
-
-def _trans_table_callback_trigger(data: List[dict],
-                                  data_prev: List[dict]) -> Tuple[bool, bool, Optional[Change]]:
-    """
-    logic for handling callbacks triggered by changes to trans table
-    :param data:
-    :param data_prev:
-    :return:
-    """
-    to_open_modal = False
-    row_del_cnf_diag = False
-    data, data_prev = pd.DataFrame(data=data), pd.DataFrame(data_prev)
-    changes: List[Change] = detect_changes_in_table(data, data_prev)
-    if changes is None:
-        return to_open_modal, row_del_cnf_diag, changes
-
-    # remove row
-    if len(data) < len(data_prev):
-        row_del_cnf_diag = True
-        change = changes[0]  # guaranteed only one change when deleting row
-        change.prev_value = TRANS_DB.iloc[change.row_ind, :]
-        return to_open_modal, row_del_cnf_diag, change
-
-    # change data
-    # todo submit changes to db
-    for change in changes:
-        if change['col_name'] not in TransDBSchema.get_categorical_cols():
-            TRANS_DB._update_data(col_name=change.col_name, index=change.row_ind,
-                                  value=change['current_value'])
-        else:
-            to_open_modal = change.prev_value is not None
-            # if not to_open_modal:  # the change will happen after modal selection
-            _apply_changes_to_trans_db_cat_col(change, all_trans=False,
-                                               col=change['col_name'])
-
-    return to_open_modal, row_del_cnf_diag, None
-
-
-def _cat_change_modal_callback_trigger(data: List[dict],
-                                       data_prev: List[dict]) -> None:
-    """
-    logic for handling callbacks triggered by changes to cat change modal
-    :param data:
-    :param data_prev:
-    :return:
-    """
-    data, data_prev = pd.DataFrame(data=data), pd.DataFrame(data_prev)
-    changes = detect_changes_in_table(data, data_prev)
-    for change in changes:
-        if ctx.triggered_id == TransIDs.MODAL_CAT_CHANGE_NO:
-            all_trans = False
-        elif ctx.triggered_id == TransIDs.MODAL_CAT_CHANGE_YES:
-            all_trans = True
-        else:
-            raise ValueError("Invalid triggered id in cat change modal")
-        _apply_changes_to_trans_db_cat_col(change, all_trans,
-                                           col=change.col_name)
 
 
 @dash.callback(
@@ -192,90 +135,108 @@ def _create_new_split_table(filtered_data: List[dict],
 
 
 @dash.callback(
-    Output(TransIDs.TRANS_TBL, 'data'),
-    Output(TransIDs.MODAL_CAT_CHANGE, 'opened'),
+    Output(TransIDs.TRANS_TBL, 'data', allow_duplicate=True),
+    Input(TransIDs.ADD_ROW_BTN, 'n_clicks'),
+    config_prevent_initial_callbacks=True
+)
+def _add_row_callback(n_clicks):
+    change = get_add_row_change_obj()  # todo define the change obj here
+    TRANS_DB.submit_change(change)
+    return TRANS_DB.get_records()
+
+
+def _calculate_data_ts_diff(data_ts) -> Optional[int]:
+    if data_ts is None:
+        return None
+
+    if isinstance(data_ts, int):
+        data_ts = datetime.datetime.fromtimestamp(data_ts / 1e3)
+    elif isinstance(data_ts, float):
+        data_ts = datetime.datetime.fromtimestamp(data_ts)
+
+    return (datetime.datetime.now() - data_ts).seconds
+
+
+@dash.callback(
     Output(TransIDs.ROW_DEL_CONFIRM_DIALOG, 'displayed'),
-    Output(TransIDs.CHANGE_STORE, 'data'),
+    Output(TransIDs.CHANGE_STORE, 'data', allow_duplicate=True),
+    Input(TransIDs.TRANS_TBL, 'data'),
+    Input(TransIDs.TRANS_TBL, "data_previous"),
+    config_prevent_initial_callbacks=True
+)
+def _delete_row_callback(data, data_prev):
+    if data is None or data_prev is None:
+        raise PreventUpdate
+
+    data = pd.DataFrame.from_records(data)
+    data_prev = pd.DataFrame.from_records(data_prev)
+    changes: List[Change] = detect_changes_in_table(data, data_prev)
+    if len(changes) == 1 and changes[0].change_type == ChangeType.DELETE_ROW:
+        return True, changes[0].to_json() # guaranteed only one change when deleting row
+    else:
+        return False, dash.no_update
+
+
+@dash.callback(
+    Output(TransIDs.TRANS_TBL, 'data', allow_duplicate=True),
+    Input(TransIDs.ROW_DEL_CONFIRM_DIALOG, 'submit_n_clicks'),
+    Input(TransIDs.ROW_DEL_CONFIRM_DIALOG, 'cancel_n_clicks'),
+    State(TransIDs.CHANGE_STORE, 'data'),
+    config_prevent_initial_callbacks=True
+)
+def row_del_confirm_dialog_callback(submit_n_clicks: int,
+                                    cancel_n_clicks: int,
+                                    change: dict):
+    triggered_props = list(ctx.triggered_prop_ids.keys())[0]
+    if 'submit_n_clicks' in triggered_props:
+        TRANS_DB.submit_change(Change.from_dict(change))
+        raise PreventUpdate
+    elif 'cancel_n_clicks' in triggered_props:
+        return TRANS_DB.get_records()
+    else:
+        raise ValueError('Invalid trigger id when deleting row')
+
+
+@dash.callback(
+    Output(TransIDs.TRANS_TBL, 'data', allow_duplicate=True),
+    Input(TransIDs.TRANS_TBL, "data"),
+    Input(TransIDs.TRANS_TBL, "data_previous"),
+    config_prevent_initial_callbacks=True
+)
+def change_table_callback(data, data_prev):
+    if data is None or data_prev is None:
+        raise PreventUpdate
+
+    if len(data) != len(data_prev):
+        raise PreventUpdate
+
+    data = pd.DataFrame(data)
+    data_prev = pd.DataFrame(data_prev)
+
+    if len(data.columns) != len(data_prev.columns):
+        raise PreventUpdate
+
+    changes: List[Change] = detect_changes_in_table(data, data_prev)
+
+    for change in changes:
+        TRANS_DB.submit_change(change)
+
+    return TRANS_DB.get_records()
+
+
+@dash.callback(
+    Output(TransIDs.TRANS_TBL, 'data', allow_duplicate=True),
     Input(TransIDs.CAT_PICKER, 'value'),
     Input(TransIDs.GROUP_PICKER, 'value'),
     Input(TransIDs.ACC_PICKER, 'value'),
     Input(TransIDs.DATE_PICKER, 'value'),
-    Input(TransIDs.ADD_ROW_BTN, 'n_clicks'),
-    Input(TransIDs.TRANS_TBL, "data"),
-    Input(TransIDs.TRANS_TBL, "data_previous"),
-    Input(TransIDs.MODAL_CAT_CHANGE_YES, 'n_clicks'),
-    Input(TransIDs.MODAL_CAT_CHANGE_NO, 'n_clicks'),
-    Input(TransIDs.ROW_DEL_PLACEDHOLDER, 'children'),
-    State(TransIDs.MODAL_CAT_CHANGE, 'opened'),
     config_prevent_initial_callbacks=True
 )
-def _update_table_callback(cat: str,
-                           group: str,
-                           account: str,
-                           date_values: List[str],
-                           n_clicks: int,
-                           data: list,
-                           data_prev: list,
-                           yes_clicks: int,
-                           no_clicks: int,
-                           row_del_placeholder: int,
-                           opened: bool):
-    """
-    This is the main callback for updating the table since each id can only
-    have one callback that uses it as output. This function calls helper
-    functions based on the triggering element
-    :param cat: chosen category in filter dropdown
-    :param account: chosen account in filter dropdown
-    :param start_date: chosen start date in filter date picker
-    :param end_date: chosen end date in filter date picker
-    :param n_clicks: property of add row button
-    :param rows: rows list of table to append a new row to
-    :param columns: columns list of table to provide values for new row
-    :param data: current data in trans table
-    :param data_prev: previous data in trans table
-    :param yes_clicks: property of yes button in change cat modal
-    :param no_clicks: property of no button in change cat modal
-    :param opened: property of change cat modal - if it is opened
-    :return: changes to table data and if the change cat modal should be opened
-    """
-    if dash.callback_context.triggered_id == TransIDs.ADD_ROW_BTN:
-        records = _add_row(n_clicks)
-        return records, dash.no_update, dash.no_update, dash.no_update
-
-    if ctx.triggered_id == TransIDs.ROW_DEL_PLACEDHOLDER:
-        # this is only true when confirmed delete row
-        return TRANS_DB.get_records(), dash.no_update, dash.no_update, dash.no_update
-
-    to_open_modal = False
-    row_del_cnf_diag = False
-
-    if dash.callback_context.triggered_id in [TransIDs.CAT_PICKER,
-                                              TransIDs.GROUP_PICKER,
-                                              TransIDs.ACC_PICKER,
-                                              TransIDs.DATE_PICKER]:
-
-        records = _filter_table(cat, group, account, date_values)
-        return records, dash.no_update, dash.no_update, dash.no_update
-
-    elif dash.callback_context.triggered_id == TransIDs.TRANS_TBL:
-        if data is None or data_prev is None:
-            raise PreventUpdate
-        to_open_modal, row_del_cnf_diag, change = _trans_table_callback_trigger(data, data_prev)
-        if change is not None:
-            # this is only true when deleting row.
-            # row_del_cnf_diag is True only when changes are not None
-            # so row_del_cnf_diag is redundant.
-            # also we have to return records here which don't include the deleted row
-            # but we don't wait for the user to confirm the deletion.
-            return TRANS_DB.get_records(), False, True, change.to_json()
-
-    elif dash.callback_context.triggered_id in [TransIDs.MODAL_CAT_CHANGE_YES,
-                                                TransIDs.MODAL_CAT_CHANGE_NO]:
-        _cat_change_modal_callback_trigger(data, data_prev)
-    else:
-        raise ValueError('Unknown trigger')
-
-    return TRANS_DB.get_records(), to_open_modal, row_del_cnf_diag, dash.no_update
+def filter_table(cat: str,
+                 group: str,
+                 account: str,
+                 date_values: List[str]):
+    return _filter_table(cat, group, account, date_values)
 
 
 def _filter_table(cat: str,
@@ -334,38 +295,6 @@ def _get_removed_row_id(df: pd.DataFrame, df_previous: pd.DataFrame):
     return (set(df_previous.id) - set(df.id)).pop()
 
 
-def _apply_changes_to_trans_db_cat_col(change: Change,
-                                       all_trans: bool,
-                                       col: str):
-    """
-    change a categorical col in trans db. If all_trans - change
-    all transactions of given payee
-    :param all_trans: if True change all transactions of given payee
-    :return:
-    """
-    if change.current_value == change.prev_value:
-        return
-
-    if change['current_value'] is None:
-        # None is not a valid category
-        change.current_value = ''
-
-    # here should be just submit change
-
-    if all_trans:  # todo move logic into trans_db
-        payee = TRANS_DB.loc[change['row_ind'], TransDBSchema.PAYEE]
-        TRANS_DB.loc[TRANS_DB[TransDBSchema.PAYEE] == payee, col]\
-            = change['current_value']
-        if change['col_name'] == TransDBSchema.CAT:
-            CAT_DB.update_payee_to_cat_mapping(payee, cat=change['current_value'])
-        uuids = TRANS_DB.loc[TRANS_DB[TransDBSchema.PAYEE] == payee,
-                             TransDBSchema.ID].to_list()
-        TRANS_DB.save_db_from_uuids(uuids)
-    else:
-        TRANS_DB.submit_change(change)
-        # TRANS_DB.update_cat_col_data(col, change['index'], change['current_value'])
-
-
 @dash.callback(Output(TransIDs.INSERT_FILE_SUMMARY_STORE, 'data'),
                Input(TransIDs.FILE_UPLOADER, 'contents'),
                State(TransIDs.FILE_UPLOADER, 'filename'),
@@ -400,14 +329,3 @@ def _update_output(list_of_contents: List[Any],
 )
 def _insert_file_summary_modal_callback(data: dict, is_open: bool):
     return data, not is_open
-
-
-@dash.callback(
-    Output(TransIDs.ROW_DEL_PLACEDHOLDER, 'children'),
-    Input(TransIDs.ROW_DEL_CONFIRM_DIALOG, 'submit_n_clicks'),
-    State(TransIDs.CHANGE_STORE, 'data')
-)
-def row_del_confirm_dialog_callback(submit_n_clicks: int, change: dict):
-    if submit_n_clicks:
-        TRANS_DB.submit_change(Change.from_dict(change))
-        return [1]

@@ -51,8 +51,10 @@ class MonthlyIDs:
 
 class BreakdownIDs:
     EXPENSES_OVER_TIME_BY_GROUP_DD = 'expenses_over_time_by_group_dd'
+    EXPENSES_OVER_TIME_BY_GROUP_TITLE = 'expenses_over_time_by_group_title'
     EXPENSES_OVER_TIME_BY_GROUP_FIG = 'expenses_over_time_by_group_fig'
     BUDGET_USAGE_FIG = 'budget_usage_fig'
+    BUDGET_USAGE_TITLE = 'budget_usage_title'
     BUDGET_USAGE_DD = 'budget_usage_dd'
 
 
