@@ -24,7 +24,7 @@ from page_elements.transactions_layout_creators import create_trans_table
 @dash.callback(
     Output(TransIDs.SPLIT_MODAL, 'opened'),
     Output(TransIDs.ADD_SPLIT_BTN, 'n_clicks'),
-    Input(TransIDs.SPLIT_BTN, 'n_clicks'),
+    Input(TransIDs.SPLIT_ICON, 'n_clicks'),
     Input(TransIDs.SPLIT_MODAL_CLOSE_BTN, 'n_clicks'),
     State(TransIDs.SPLIT_MODAL, 'opened'),
     config_prevent_initial_callbacks=True
@@ -56,7 +56,7 @@ def _add_split(n_clicks, children):
     return children
 
 
-def split_amounts_eq_orig(row_amount, split_amounts):
+def _split_amounts_eq_orig(row_amount, split_amounts):
     """ make sure the sum of split amounts equals the original transaction amount """
     split_amounts = [float(s) for s in split_amounts if s not in ['', 0]]
     split_amount = sum(split_amounts)
@@ -94,7 +94,7 @@ def _apply_splits_callback(n_clicks,
     row_amount = row[TransDBSchema.AMOUNT]
 
     # validate split amounts
-    if not split_amounts_eq_orig(row_amount, split_amounts):
+    if not _split_amounts_eq_orig(row_amount, split_amounts):
         return dash.no_update, dash.no_update, \
             _create_split_fail(f"Split amount must equal original amount "
                                f"({row_amount})")
@@ -143,18 +143,6 @@ def _add_row_callback(n_clicks):
     change = get_add_row_change_obj()  # todo define the change obj here
     TRANS_DB.submit_change(change)
     return TRANS_DB.get_records()
-
-
-def _calculate_data_ts_diff(data_ts) -> Optional[int]:
-    if data_ts is None:
-        return None
-
-    if isinstance(data_ts, int):
-        data_ts = datetime.datetime.fromtimestamp(data_ts / 1e3)
-    elif isinstance(data_ts, float):
-        data_ts = datetime.datetime.fromtimestamp(data_ts)
-
-    return (datetime.datetime.now() - data_ts).seconds
 
 
 @dash.callback(
@@ -235,14 +223,7 @@ def change_table_callback(data, data_prev):
 def filter_table(cat: str,
                  group: str,
                  account: str,
-                 date_values: List[str]):
-    return _filter_table(cat, group, account, date_values)
-
-
-def _filter_table(cat: str,
-                  group: str,
-                  account: str,
-                  date_values: List[str]) -> List[dict]:
+                 date_values: List[str]) -> List[dict]:
     """
     Filters the table based on the chosen filters
     :return: dict of filtered df
@@ -273,17 +254,6 @@ def _filter_table(cat: str,
     return table.get_records()
 
 
-def _add_row(n_clicks):
-    """
-    Adds a new row to the table
-    :return: list of rows with new row appended
-    """
-    if n_clicks > 0:
-        change = get_add_row_change_obj()  # todo define the change obj here
-        TRANS_DB.submit_change(change)
-    return TRANS_DB.get_records()
-
-
 def _get_removed_row_id(df: pd.DataFrame, df_previous: pd.DataFrame):
     """
     The users added or removed a row from the trans table -> update the db
@@ -295,14 +265,18 @@ def _get_removed_row_id(df: pd.DataFrame, df_previous: pd.DataFrame):
     return (set(df_previous.id) - set(df.id)).pop()
 
 
-@dash.callback(Output(TransIDs.INSERT_FILE_SUMMARY_STORE, 'data'),
+@dash.callback(Output(TransIDs.UPLOAD_FILE_SUMMARY_LABEL, 'children'),
+               Output(TransIDs.UPLOAD_FILE_SUMMARY_MODAL, 'opened'),
+               Output(TransIDs.FILE_UPLOAD_MODAL, 'opened', allow_duplicate=True),
+               Output(TransIDs.TRANS_TBL, 'data', allow_duplicate=True),
+               Output(TransIDs.FILE_UPLOADER, 'contents'),
                Input(TransIDs.FILE_UPLOADER, 'contents'),
                State(TransIDs.FILE_UPLOADER, 'filename'),
                State(TransIDs.FILE_UPLOADER_DROPDOWN, 'value'),
                config_prevent_initial_callbacks=True)
-def _update_output(list_of_contents: List[Any],
-                   list_of_names: List[str],
-                   dd_val: str):
+def _upload_file_callback(list_of_contents: List[Any],
+                          list_of_names: List[str],
+                          dd_val: str):
     if dd_val is None:
         raise PreventUpdate  # todo open err modal
 
@@ -317,15 +291,28 @@ def _update_output(list_of_contents: List[Any],
             raise ValueError(f'Unknown file type {f_name} for import')
 
         trans_file = import_file(file, account_name=dd_val, cat_db=CAT_DB)
-        return TRANS_DB.insert_data(trans_file)
+        insert_summary = TRANS_DB.insert_data(trans_file)
+        open_upload_summary = True
+        open_upload_modal = False
+        uploader_contents = None  # reset it to be able to upload the same file again
+        return _create_upload_summary_label(insert_summary), \
+            open_upload_summary, \
+            open_upload_modal, \
+            TRANS_DB.get_records(), \
+            uploader_contents
+
+
+def _create_upload_summary_label(summary: dict):
+    return dmc.Stack([
+        dmc.Text(f'Inserted {summary["added"]} transactions'),
+        dmc.Text(f'skipped {summary["skipped"]} transactions'),
+    ])
 
 
 @dash.callback(
-    Output(TransIDs.INSERT_FILE_SUMMARY_MODAL, 'is_open'),
-    Output(TransIDs.INSERT_FILE_SUMMARY_LABEL, 'children'),
-    Input(TransIDs.INSERT_FILE_SUMMARY_STORE, 'data'),
-    State(TransIDs.INSERT_FILE_SUMMARY_MODAL, 'is_open'),
+    Output(TransIDs.FILE_UPLOAD_MODAL, 'opened'),
+    Input(TransIDs.UPLOAD_FILE_ICON, 'n_clicks'),
     config_prevent_initial_callbacks=True
 )
-def _insert_file_summary_modal_callback(data: dict, is_open: bool):
-    return data, not is_open
+def _upload_file_modal_callback(_: int):
+    return True

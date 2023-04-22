@@ -50,17 +50,14 @@ def _add_cats_to_categorical_columns(trans_df: pd.DataFrame,
     add all possible categories to categorical columns
     :return:
     """
-    trans_df[TransDBSchema.CAT].cat.set_categories(cat_db.get_categories(),
-                                                   inplace=True)
-    trans_df[TransDBSchema.CAT].cat.add_categories('', inplace=True)
+    trans_df[TransDBSchema.CAT] = trans_df[TransDBSchema.CAT].cat.set_categories(cat_db.get_categories())
+    trans_df[TransDBSchema.CAT] = trans_df[TransDBSchema.CAT].cat.add_categories('')
 
-    trans_df[TransDBSchema.CAT_GROUP].cat.set_categories(cat_db.get_group_names(),
-                                                         inplace=True)
-    trans_df[TransDBSchema.CAT_GROUP].cat.add_categories('', inplace=True)
+    trans_df[TransDBSchema.CAT_GROUP] = trans_df[TransDBSchema.CAT_GROUP].cat.set_categories(cat_db.get_group_names())
+    trans_df[TransDBSchema.CAT_GROUP] = trans_df[TransDBSchema.CAT_GROUP].cat.add_categories('')
 
-    trans_df[TransDBSchema.ACCOUNT].cat.set_categories(list(ACCOUNTS.keys()),
-                                                       inplace=True)
-    trans_df[TransDBSchema.ACCOUNT].cat.add_categories('', inplace=True)
+    trans_df[TransDBSchema.ACCOUNT] = trans_df[TransDBSchema.ACCOUNT].cat.set_categories(list(ACCOUNTS.keys()))
+    trans_df[TransDBSchema.ACCOUNT] = trans_df[TransDBSchema.ACCOUNT].cat.add_categories('')
 
     return trans_df
 
