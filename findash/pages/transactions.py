@@ -1,29 +1,12 @@
-from datetime import datetime
-from typing import List, Optional, Tuple, Any, Union
-import base64
-import io
-
-import dash
-import dash_mantine_components as dmc
-import pandas as pd
-from dash import State, html, dash_table, dcc, Input, Output, ctx, ALL
+from dash import html, dcc
 import dash_bootstrap_components as dbc
-from dash.dash_table.Format import Format, Symbol
-from dash.exceptions import PreventUpdate
 from dash_iconify import DashIconify
 
-from main import CAT_DB, TRANS_DB
 from accounts import ACCOUNTS
 from shared_elements import create_page_heading
-from transactions_db import TransDBSchema
-from element_ids import TransIDs
-from utils import format_date_col_for_display, SHEKEL_SYM
-from categories_db import _get_group_and_cat_for_dropdown
-from transactions_importer import import_file
 from page_elements.transactions_split_window import create_split_trans_modal
 from page_elements.transactions_layout_creators import _create_file_uploader, \
-    create_trans_table, _create_add_row_split_buttons, _create_main_trans_table, \
-    _create_file_insert_summary_modal
+    _create_main_trans_table, _create_file_insert_summary_modal
 from page_elements.transactions_callbacks import *
 
 dash.register_page(__name__)
@@ -118,16 +101,14 @@ def _create_layout():
         ])
     ])
     container.children.extend([
-        split_trans_modal := create_split_trans_modal(create_trans_table),
-        upload_file_section := _create_file_uploader(),
+        create_split_trans_modal(create_trans_table),
+        _create_file_uploader(),
         dcc.ConfirmDialog(id=TransIDs.ROW_DEL_CONFIRM_DIALOG,
                           displayed=False,
                           message='Are you sure you want to delete this row?'),
         _create_file_insert_summary_modal(),
         dcc.Store(id=TransIDs.CHANGE_STORE),
         dcc.Store(id=TransIDs.INSERT_FILE_SUMMARY_STORE),
-        html.Div(id=TransIDs.ROW_DEL_PLACEDHOLDER,
-                 style={'display': 'none'}),
     ])
     return container
 
