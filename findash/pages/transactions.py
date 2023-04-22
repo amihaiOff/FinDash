@@ -5,7 +5,7 @@ from dash_iconify import DashIconify
 from accounts import ACCOUNTS
 from shared_elements import create_page_heading
 from page_elements.transactions_split_window import create_split_trans_modal
-from page_elements.transactions_layout_creators import _create_file_uploader, \
+from page_elements.transactions_layout_creators import create_file_upload_modal, \
     _create_main_trans_table, _create_file_insert_summary_modal
 from page_elements.transactions_callbacks import *
 
@@ -73,14 +73,23 @@ def _create_filtering_components():
             ])
 
 
-def _create_add_del_row_components():
+def _create_action_icon(icon, id, tooltip_label: str, size='xl'):
+    return dmc.Tooltip(dmc.ActionIcon(children=DashIconify(icon=icon, width=35),
+                                      id=id,
+                                      size=size),
+                       label=tooltip_label,
+                       position='top',
+                       color='gray',
+                       transition='slide-up',
+                       withArrow=True,
+                       openDelay=500)
+
+
+def _create_add_action_icons():
     return dmc.Group([
-        dmc.ActionIcon(DashIconify(icon='mdi:table-row-plus-before', width=40),
-                       id=TransIDs.ADD_ROW_BTN,
-                       size='xl'),
-        dmc.ActionIcon(children=DashIconify(icon='ic:round-upload-file', width=35),
-                       id=TransIDs.UPLOAD_FILE_ICON,
-                       size='xl'),
+        _create_action_icon('mdi:table-row-plus-before', TransIDs.ADD_ROW_BTN, 'Add Row'),
+        _create_action_icon('ic:round-upload-file', TransIDs.UPLOAD_FILE_ICON, 'Upload File'),
+        _create_action_icon('ic:outline-splitscreen', TransIDs.SPLIT_ICON, 'Split Transaction')
     ])
 
 
@@ -92,7 +101,7 @@ def _create_layout():
         dbc.Row([
             dmc.Group([
                 _create_filtering_components(),
-                _create_add_del_row_components()
+                _create_add_action_icons()
             ], position='apart', style={'box-shadow': '5px 5px 5px -3px rgba(0, 0, 0, 0.5)',
                                         'border-radius': '10px'})
         ], style={'margin-bottom': '40px'}),
@@ -102,7 +111,7 @@ def _create_layout():
     ])
     container.children.extend([
         create_split_trans_modal(create_trans_table),
-        _create_file_uploader(),
+        create_file_upload_modal(),
         dcc.ConfirmDialog(id=TransIDs.ROW_DEL_CONFIRM_DIALOG,
                           displayed=False,
                           message='Are you sure you want to delete this row?'),

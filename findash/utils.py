@@ -10,6 +10,7 @@ from typing import Any, Dict, Tuple, Optional, List, Union
 from dash import html, dash_table
 from dash.dash_table.Format import Format, Symbol
 
+
 SHEKEL_SYM = '₪'
 START_DATE_DEFAULT = pd.to_datetime('1900-01-01')
 END_DATE_DEFAULT = pd.to_datetime('2100-01-01')
@@ -85,14 +86,14 @@ class ChangeType(Enum):
 @dataclass
 class Change:
     ROW_IND = 'row_ind'
-    # TRANS_ID = 'trans_id'
+    TRANS_ID = 'trans_id'
     COL_NAME = 'col_name'
     CURRENT_VALUE = 'current_value'
     PREV_VALUE = 'prev_value'
     CHANGE_TYPE = 'change_type'
 
     row_ind: Optional[int]
-    # trans_id: Optional[str]
+    trans_id: Optional[str]
     col_name: Optional[str]
     current_value: Optional[str]
     prev_value: Optional[str]
@@ -101,9 +102,9 @@ class Change:
 
     def __getitem__(self, item):
         attr_names = [self.ROW_IND, self.COL_NAME, self.CURRENT_VALUE,
-                      self.PREV_VALUE]
+                      self.PREV_VALUE, self.TRANS_ID]
         attr_vals = [self.row_ind, self.col_name, self.current_value,
-                     self.prev_value]
+                     self.prev_value, self.trans_id]
         attr_dict = dict(zip(attr_names, attr_vals))
         val = attr_dict.get(item, 'null')  # cannot use None since this might be the value of the field
         if val == 'null':
@@ -118,7 +119,8 @@ class Change:
             self.COL_NAME: self.col_name,
             self.CHANGE_TYPE: str(self.change_type),
             self.CURRENT_VALUE: curr_val,
-            self.PREV_VALUE: prev_val
+            self.PREV_VALUE: prev_val,
+            self.TRANS_ID: self.trans_id
         }
 
     @classmethod
@@ -139,7 +141,8 @@ class Change:
             col_name=change_dict[cls.COL_NAME],
             change_type=ChangeType(change_dict[cls.CHANGE_TYPE]),
             prev_value=prev_val,
-            current_value=curr_val
+            current_value=curr_val,
+            trans_id=change_dict[cls.TRANS_ID]
         )
 
 
@@ -225,7 +228,7 @@ def format_date_col_for_display(trans_df: pd.DataFrame, date_col: str) \
     """ format the date column for display. Creates a copy of the df for display """
     df_copy = trans_df.copy()
     df_copy[date_col] = df_copy[date_col].dt.strftime('%Y-%m-%d')
-    return trans_df
+    return df_copy
 
 
 def check_null(value: Any) -> bool:
@@ -280,7 +283,8 @@ def get_add_row_change_obj():
             col_name=None,
             prev_value=None,
             current_value=None,
-            change_type=ChangeType.ADD_ROW
+            change_type=ChangeType.ADD_ROW,
+            trans_id=None
         )
 
 
@@ -325,7 +329,7 @@ def detect_changes_in_table(df: pd.DataFrame,
         removed_row = _get_removed_row(df, df_previous)
         return [Change(
             row_ind=removed_row.name,
-            # trans_id=removed_row[],
+            trans_id=removed_row['id'],
             col_name=None,
             current_value=None,
             prev_value=removed_row,
@@ -360,7 +364,10 @@ def detect_changes_in_table(df: pd.DataFrame,
                        col_name=change[0],
                        current_value=df.at[row_id, change[0]],
                        prev_value=df_previous.at[row_id, change[0]],
-                       change_type=change_type)
+                       change_type=change_type,
+                       trans_id=df.at[row_id, 'id']
+                       # we can use row index here since it is one to one with what's on screen
+                       )
             )
 
     return changes

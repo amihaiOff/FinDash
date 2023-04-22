@@ -119,3 +119,38 @@
     color: #76a2cf;
     margin-bottom: 1rem;
 }
+
+.dash-spreadsheet-menu {
+margin: 1% 0 1% 0;
+/*justify-content: center;*/
+}
+
+.export {
+    border-radius: 5px;
+    border: 2px solid lightgrey;
+    padding: 0 15px;
+    font-family: ‘Poppins-Bold’;
+    background-color:white;
+    transition:.75s;
+}
+
+.export:hover {
+    color:white;
+    box-shadow: 0 1px 3px lightgrey;
+    background-color: lightgrey;
+}
+
+.show-hide {
+    border-radius: 5px;
+    border: 2px solid lightgrey;
+    padding: 0 15px;
+    font-family: ‘Poppins-Bold’;
+    background-color:white;
+    transition:.75s;
+}
+
+.show-hide:hover {
+    color:white;
+    box-shadow: 0 1px 3px lightgrey;
+    background-color: lightgrey;
+}

@@ -21,7 +21,6 @@ This is the recorded history of the transactions.
 @dataclass
 class TransDBSchema:
     ID: str = 'id'
-    # DELETE: str = 'delete'
     DATE: str = 'date'
     PAYEE: str = 'payee'
     CAT: str = 'cat'
@@ -37,7 +36,6 @@ class TransDBSchema:
     @classmethod
     def col_display_name_mapping(cls):
         return {
-            # cls.DELETE: '',
             cls.DATE: 'Date',
             cls.PAYEE: 'Payee',
             cls.CAT: 'Category',
@@ -47,6 +45,7 @@ class TransDBSchema:
             cls.AMOUNT: 'Amount',
             cls.INFLOW: 'Inflow',
             cls.OUTFLOW: 'Outflow',
+            cls.ID: 'ID'
         }
 
     @classmethod
@@ -60,11 +59,9 @@ class TransDBSchema:
 
     @classmethod
     def get_col_order_for_table(cls):
-        return [
-            # TransDBSchema.DELETE,
-                TransDBSchema.DATE, TransDBSchema.PAYEE,
+        return [TransDBSchema.DATE, TransDBSchema.PAYEE,
                 TransDBSchema.AMOUNT, TransDBSchema.INFLOW, TransDBSchema.OUTFLOW,
-                TransDBSchema.CAT, TransDBSchema.MEMO, TransDBSchema.ACCOUNT]
+                TransDBSchema.CAT, TransDBSchema.MEMO, TransDBSchema.ACCOUNT, TransDBSchema.ID]
 
     @classmethod
     def get_cols_for_trans_drawer(cls) -> List[str]:
@@ -105,10 +102,9 @@ class TransDBSchema:
     def get_displayed_cols_by_type(cls):
         return {
             'date': [cls.DATE],
-            'str': [cls.PAYEE, cls.MEMO],
+            'str': [cls.PAYEE, cls.MEMO, cls.ID],
             'numeric': [cls.AMOUNT, cls.INFLOW, cls.OUTFLOW],
             'cat': [cls.CAT, cls.ACCOUNT],
-            # 'icon': [cls.DELETE]
         }
 
     @classmethod
@@ -359,7 +355,7 @@ class TransactionsDBParquet:
         self._sort_db()
         self.save_db(months)
 
-    def _update_cat_col_data(self, col_name: str, index: int, value: Any):
+    def _update_cat_col_data(self, col_name: str, trans_id: str, value: Any):
         """
         when updating a category we also might need to change the category group
         :param col_name:
@@ -370,21 +366,21 @@ class TransactionsDBParquet:
         # None is not a valid category
         value = '' if value is None else value
 
+        index = self._get_row_index_from_trans_id(trans_id)
         # update mapping of payee to category
         payee = self._db.loc[index, TransDBSchema.PAYEE]
         if check_null(self._db.loc[index, col_name]):  # only update first time
             self._cat_db.update_payee_to_cat_mapping(payee, cat=value)
 
-        self._update_cat_group(index, value)
-        self._update_data(col_name, index, value)
+        self._update_cat_group(trans_id, value)
+        self._update_data(col_name, trans_id, value)
 
     def submit_change(self, change: Change):
         if change.change_type == ChangeType.ADD_ROW:
             self.add_new_row()
 
         elif change.change_type == ChangeType.DELETE_ROW:
-            row_id = self._db.loc[change.row_ind, TransDBSchema.ID]
-            self.remove_row_with_id(row_id)
+            self.remove_row_with_id(change.trans_id)
 
         elif change.change_type == ChangeType.CHANGE_DATA:
             if change.current_value == change.prev_value:
@@ -392,10 +388,11 @@ class TransactionsDBParquet:
             if change.col_name == TransDBSchema.CAT:
                 # move all trans logic to here.
                 # add an optional parameter in the change object
-                self._update_cat_col_data(change.col_name, change.row_ind,
+                self._update_cat_col_data(change.col_name,
+                                          change.trans_id,
                                           change.current_value)
             else:
-                self._update_data(change.col_name, change.row_ind, change.current_value)
+                self._update_data(change.col_name, change.trans_id, change.current_value)
 
         self.change_list.append(change)
 
@@ -405,7 +402,7 @@ class TransactionsDBParquet:
     def redo(self):
         pass
 
-    def _update_data(self, col_name: str, index: int, value: Any) -> None:
+    def _update_data(self, col_name: str, trans_id: str, value: Any) -> None:
         """
         update a specific cell in the db
         :param col_name:
@@ -413,6 +410,7 @@ class TransactionsDBParquet:
         :param value:
         :return:
         """
+        index = self._get_row_index_from_trans_id(trans_id)
         prev_value = self._db.loc[index, col_name]
         self._db.loc[index, col_name] = value
 
@@ -456,12 +454,12 @@ class TransactionsDBParquet:
 
         return list(months)
 
-    def _update_cat_group(self, index: int, new_value: str):
+    def _update_cat_group(self, trans_id: str, new_value: str):
         """
         update the category group of a transaction
         """
         group = self._cat_db.get_group_of_category(new_value)
-        self._update_data(TransDBSchema.CAT_GROUP, index, group)
+        self._update_data(TransDBSchema.CAT_GROUP, trans_id, group)
 
     def _create_new_split_row(self,
                               row_to_split: pd.Series,
@@ -596,6 +594,9 @@ class TransactionsDBParquet:
             col: df[col].cat.categories.tolist()
             for col in TransDBSchema.get_categorical_cols()
         }
+
+    def _get_row_index_from_trans_id(self, trans_id: str):
+        return self._db[self._db[TransDBSchema.ID] == trans_id].index[0]
 
     def get_records(self) -> dict:
         """

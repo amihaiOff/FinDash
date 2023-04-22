@@ -37,9 +37,6 @@ def setup_table_cols(cols_subset: Optional[List[str]] = None) -> List[dict]:
                        'hideable': True,
                        'deletable': False}
 
-            if col_type == 'icon':
-                col_def['presentation'] = 'markdown'
-
             if col_type == 'date':
                 col_def['type'] = 'datetime'
 
@@ -64,29 +61,6 @@ def setup_table_cols(cols_subset: Optional[List[str]] = None) -> List[dict]:
     return trans_df_cols
 
 
-def _create_file_uploader():
-    uploader = dcc.Upload(
-        id='file_uploader',
-        multiple=True,
-        children=[dbc.Button('Upload File')]
-    )
-    acc_names = [acc_name for acc_name, _ in ACCOUNTS.items()]
-    dropdown = dcc.Dropdown(id=TransIDs.FILE_UPLOADER_DROPDOWN,
-                            placeholder='Select account',
-                            clearable=False,
-                            options=[{'label': f'{account}',
-                                      'value': f'{account}'} for
-                                            account in acc_names],
-                            )
-    return dbc.Card([
-                dbc.CardHeader('Upload Transactions'),
-                dropdown,
-                dmc.Space(h=8),
-                uploader,
-                ],
-            )
-
-
 def _setup_table_cell_dropdowns():
     account_names = [acc_name for acc_name, _ in ACCOUNTS.items()]
 
@@ -100,22 +74,6 @@ def _setup_table_cell_dropdowns():
         },
     }
     return dropdown_options
-
-
-def _create_add_row_split_buttons() -> Tuple[dbc.Col, dbc.Col]:
-    """
-    Creates the add row and split transaction buttons
-    :return:
-    """
-    add_row_btn = dbc.Col([dbc.Button('Add row',
-                                      id=TransIDs.ADD_ROW_BTN,
-                                      n_clicks=0,
-                                      style=({'font-size': '14px'}))])
-    split_btn = dbc.Col([dbc.Button('Split',
-                                    id=TransIDs.SPLIT_BTN,
-                                    style=({'font-size': '14px'}))])
-
-    return add_row_btn, split_btn
 
 
 def create_trans_table(id: str,
@@ -153,13 +111,13 @@ def create_trans_table(id: str,
                                 export_format=export_format,
                                 export_headers='display',
                                 row_selectable=row_selectable,
-                                markdown_options={'html': True},
                                 sort_by=[{'column_id': TransDBSchema.DATE,
                                           'direction': 'desc'}],
                                 page_size=50,
                                 row_deletable=rows_deletable,
-                                fill_width=False,
-                                style_table={'overflowX': 'auto'},
+                                fill_width=True,
+                                hidden_columns=[TransDBSchema.ID],
+                                style_table={'overflowX': 'auto', 'width': '100%'},
                                 columns=col_defs,
                                 dropdown=_setup_table_cell_dropdowns(),
                                 style_data_conditional=[
@@ -167,7 +125,7 @@ def create_trans_table(id: str,
                                         'backgroundColor': 'rgb(240, 246, 255)'},
                                     {'if': {'column_id': TransDBSchema.MEMO},
                                         'textOverflow': 'ellipsis',
-                                        'maxWidth': 200,
+                                        # 'maxWidth': 200,
                                         'overflow': 'hidden'},
                                     {'if': {'column_id': TransDBSchema.DATE},
                                         'color': 'gray'},
@@ -185,7 +143,6 @@ def create_trans_table(id: str,
                                     'padding-left': '5px',
                                     'background-color': 'white',
                                     'border-top': 'none',
-                                    # 'border-bottom': 'none',
                                     'border-left': 'none',
                                     'border-right': 'none',
                                 },
@@ -202,7 +159,7 @@ def _create_main_trans_table() -> dash_table.DataTable:
     """
     col_subset = [TransDBSchema.DATE, TransDBSchema.PAYEE, TransDBSchema.INFLOW,
                  TransDBSchema.OUTFLOW, TransDBSchema.CAT, TransDBSchema.MEMO,
-                 TransDBSchema.ACCOUNT]
+                 TransDBSchema.ACCOUNT, TransDBSchema.ID]
     return create_trans_table(id=TransIDs.TRANS_TBL,
                               table=TRANS_DB,
                               subset_cols=col_subset)
@@ -215,11 +172,32 @@ def _create_file_insert_summary_modal() -> dmc.Modal:
     """
     return dmc.Modal(
         title="File Insert Summary",
-        id=TransIDs.INSERT_FILE_SUMMARY_MODAL,
+        id=TransIDs.UPLOAD_FILE_SUMMARY_MODAL,
         children=[
             dmc.Text(
                 [],
-                id=TransIDs.INSERT_FILE_SUMMARY_LABEL
+                id=TransIDs.UPLOAD_FILE_SUMMARY_LABEL
             ),
         ],
+    )
+
+
+def create_file_upload_modal():
+    return dmc.Modal([
+        dmc.Select(label='Select Account',
+                   id=TransIDs.FILE_UPLOADER_DROPDOWN,
+                   data=[acc_name for acc_name, _ in ACCOUNTS.items()]
+                   ),
+        dmc.Space(h=10),
+        dmc.Group([
+            dcc.Upload(
+                id=TransIDs.FILE_UPLOADER,
+                multiple=True,
+                children=[dmc.Button('Upload File')]
+            )
+        ], position='center')
+
+    ],
+        title='Upload Transactions File',
+        id=TransIDs.FILE_UPLOAD_MODAL
     )
