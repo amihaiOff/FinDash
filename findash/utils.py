@@ -308,6 +308,15 @@ def detect_changes_in_table(df: pd.DataFrame,
     :param row_id_name:
     :return:
     """
+    if len(df.columns) != len(df_previous.columns):
+        """
+        This case is when deleting a row and not confirming the deletion, so the
+        the new data is the records from the TRANS_TBL (which has the deleted row we 
+        want to put back) which includes all the columns and not just the visible ones. 
+        In this case we know we don't want to change anything
+        """
+        return []
+
     change_type = get_change_type(df, df_previous)
     if change_type == ChangeType.ADD_ROW:
         return [get_add_row_change_obj()]

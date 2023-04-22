@@ -379,9 +379,6 @@ class TransactionsDBParquet:
         self._update_data(col_name, index, value)
 
     def submit_change(self, change: Change):
-        if change.current_value == change.prev_value:
-            return
-
         if change.change_type == ChangeType.ADD_ROW:
             self.add_new_row()
 
@@ -390,6 +387,8 @@ class TransactionsDBParquet:
             self.remove_row_with_id(row_id)
 
         elif change.change_type == ChangeType.CHANGE_DATA:
+            if change.current_value == change.prev_value:
+                return
             if change.col_name == TransDBSchema.CAT:
                 # move all trans logic to here.
                 # add an optional parameter in the change object

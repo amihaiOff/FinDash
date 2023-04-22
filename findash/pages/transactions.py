@@ -22,8 +22,8 @@ from categories_db import _get_group_and_cat_for_dropdown
 from transactions_importer import import_file
 from page_elements.transactions_split_window import create_split_trans_modal
 from page_elements.transactions_layout_creators import _create_file_uploader, \
-    _create_category_change_modal, create_trans_table, _create_add_row_split_buttons, \
-    _create_main_trans_table, _create_file_insert_summary_modal
+    create_trans_table, _create_add_row_split_buttons, _create_main_trans_table, \
+    _create_file_insert_summary_modal
 from page_elements.transactions_callbacks import *
 
 dash.register_page(__name__)
@@ -116,29 +116,8 @@ def _create_layout():
         dbc.Row([
             html.Div(_create_main_trans_table(), id=TransIDs.TRANS_TBL_DIV, style={'width': '100%'})
         ])
-        # dbc.Row([
-        #     dbc.Col([
-        #         category_picker,
-        #         html.Br(),
-        #         group_picker,
-        #         html.Br(),
-        #         account_picker,
-        #         html.Br(),
-        #         date_picker,
-        #         html.Br(),
-        #         dmc.Divider(variant='dashed', size='lg'),
-        #         dmc.Space(h=20),
-        #         dbc.Row(_create_add_row_split_buttons()),
-        #         dmc.Space(h=20),
-        #         # todo insert_file_modal
-        #     ], width=2),
-        #     dbc.Col([
-        #         html.Div(_create_main_trans_table(), id=TransIDs.TRANS_TBL_DIV)
-        #     ], width=10),
-        # ])
     ])
     container.children.extend([
-        cat_change_modal := _create_category_change_modal(),
         split_trans_modal := create_split_trans_modal(create_trans_table),
         upload_file_section := _create_file_uploader(),
         dcc.ConfirmDialog(id=TransIDs.ROW_DEL_CONFIRM_DIALOG,

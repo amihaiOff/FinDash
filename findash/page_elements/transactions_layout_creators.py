@@ -64,39 +64,6 @@ def setup_table_cols(cols_subset: Optional[List[str]] = None) -> List[dict]:
     return trans_df_cols
 
 
-def _create_category_change_modal() -> dmc.Modal:
-    """
-    Creates a modal for changing the category of a transaction
-    :return:
-    """
-    return dmc.Modal(
-        title="Change Category",
-        id=TransIDs.MODAL_CAT_CHANGE,
-        children=[
-            dmc.Text(
-                'Would you like to apply this change to all transactions ofthis payee?'
-            ),
-            dmc.Space(h=20),
-            dmc.Group(
-                [
-                    dmc.Button(
-                        "Yes",
-                        id=TransIDs.MODAL_CAT_CHANGE_YES,
-                        color="primary",
-                    ),
-                    dmc.Button(
-                        "No",
-                        color="red",
-                        variant="outline",
-                        id=TransIDs.MODAL_CAT_CHANGE_NO,
-                    ),
-                ],
-                position="right",
-            ),
-        ],
-    )
-
-
 def _create_file_uploader():
     uploader = dcc.Upload(
         id='file_uploader',
