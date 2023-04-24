@@ -19,7 +19,6 @@ class TransIDs:
     SPLIT_AMOUNT = 'split_amount'
     SPLIT_MEMO = 'split_memo'
     APPLY_SPLIT_BTN = 'apply_split_btn'
-    SPLIT_MODAL_CLOSE_BTN = 'split_modal_close_btn'
     SPLIT_TBL = 'split_tbl'
     SPLIT_NOTIF = 'split_notif'
     ROW_DEL_CONFIRM_DIALOG = 'row_del_confirm_dialog'

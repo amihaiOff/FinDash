@@ -25,11 +25,10 @@ from page_elements.transactions_layout_creators import create_trans_table
     Output(TransIDs.SPLIT_MODAL, 'opened'),
     Output(TransIDs.ADD_SPLIT_BTN, 'n_clicks'),
     Input(TransIDs.SPLIT_ICON, 'n_clicks'),
-    Input(TransIDs.SPLIT_MODAL_CLOSE_BTN, 'n_clicks'),
     State(TransIDs.SPLIT_MODAL, 'opened'),
     config_prevent_initial_callbacks=True
 )
-def _open_split_trans_modal_callback(n_clicks_add_split, n_clicks_close, opened):
+def _open_split_trans_modal_callback(_, opened):
     n_clicks = 0
     return not opened, n_clicks
 

@@ -99,36 +99,47 @@ def create_split_trans_modal(create_table_func: Callable) -> dmc.Modal:
         title='Split Transaction',
         id=TransIDs.SPLIT_MODAL,
         children=[
-            split_notif,
-            html.Div(dmc.Button(id=TransIDs.ADD_SPLIT_BTN,
-                                children=['+'],
-                                radius='xl',
-                                size='lg',
-                                compact=True),
-                     style={'position': 'fixed', 'bottom': '50px', 'right': '50px'}),
-            html.Div(dmc.Button(id=TransIDs.APPLY_SPLIT_BTN,
-                                children=['Apply'],
-                                size='md'),
-                        style={'position': 'fixed', 'bottom': '50px', 'right': '550px'}
-                     ),
-            html.Div(dmc.Button(id=TransIDs.SPLIT_MODAL_CLOSE_BTN,
-                                children=['Cancel'],
-                                size='md'),
-                     style={'position': 'fixed', 'bottom': '50px',
-                            'right': '400px'}
-                     ),
-            dmc.Grid([
-                dmc.Col([html.Div(table, id=TransIDs.SPLIT_TBL_DIV)],
+            html.Div([
+                split_notif,
+                html.Div(dmc.Button(id=TransIDs.ADD_SPLIT_BTN,
+                                    children=['+'],
+                                    radius='xl',
+                                    size='lg',
+                                    compact=True),
+                         style={'position': 'fixed', 'bottom': '50px', 'right': '50px'}),
+                html.Div(dmc.Button(id=TransIDs.APPLY_SPLIT_BTN,
+                                    children=['Apply'],
+                                    size='md'),
+                            style={'position': 'fixed', 'bottom': '50px', 'right': '550px'}
+                         ),
+
+                dmc.Grid([
+                    dmc.Col([html.Div(table, id=TransIDs.SPLIT_TBL_DIV)],
+                            style={'max-height': '90vh', 'overflowY': 'auto'},
+                            span=5),
+                    dmc.Col([
+                        _create_split_input_card(1),
+                        _create_split_input_card(2),
+                        # dmc.Button(id=TransIDs.APPLY_SPLIT_BTN,
+                        #            children=['Apply'],
+                        #            size='md'),
+                        # dmc.Button(id=TransIDs.ADD_SPLIT_BTN,
+                        #            children=['+'],
+                        #            radius='xl',
+                        #            size='lg',
+                        #            compact=True),
+                    ],
+                        id=TransIDs.SPLITS_COL,
                         style={'overflowY': 'auto'},
-                        span=5),
-                dmc.Col([
-                    _create_split_input_card(1),
-                    _create_split_input_card(2),
-                ],
-                    id=TransIDs.SPLITS_COL,
-                    span=6),
-            ])
+                        span=6),
+                ])
+            ], style={'height': '100%'})
+
         ],
         size='90%',
-        overflow='inside'
+        styles={'modal': {'height': '90vh'}},
+        # className={'modal': 'split-modal-inner'},
+        overflow='inside',
+        closeOnClickOutside=True,
+        closeOnEscape=True,
     )
