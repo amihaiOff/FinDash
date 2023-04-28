@@ -110,7 +110,7 @@ def _create_layout():
         ])
     ], id='trans_cont')
     container.children.extend([
-        html.Div(id=TransIDs.SPLIT_NOTIF_DIV),
+        html.Div(id=TransIDs.NOTIF_DIV),
         create_split_trans_modal(create_trans_table),
         create_file_upload_modal(),
         dcc.ConfirmDialog(id=TransIDs.ROW_DEL_CONFIRM_DIALOG,

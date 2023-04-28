@@ -13,8 +13,8 @@ from element_ids import TransIDs
 from main import TRANS_DB, CAT_DB
 from page_elements.transactions_layout_creators import _create_main_trans_table
 from page_elements.transactions_split_window import _create_split_input_card, \
-    _create_split_fail, _create_split_trans_table, _create_split_success, \
-    create_split_trans_modal
+    _create_split_trans_table, create_split_trans_modal
+from shared_elements import create_split_fail, create_split_success, create_error_notif
 from transactions_db import TransDBSchema
 from transactions_importer import import_file
 from utils import detect_changes_in_table, Change, \
@@ -71,7 +71,7 @@ def _split_amounts_eq_orig(row_amount, split_amounts):
 @dash.callback(
     Output(TransIDs.TRANS_TBL_DIV, 'children'),
     Output(TransIDs.SPLIT_TBL_DIV, 'children'),
-    Output(TransIDs.SPLIT_NOTIF_DIV, 'children'),
+    Output(TransIDs.NOTIF_DIV, 'children'),
     Input(TransIDs.APPLY_SPLIT_BTN, 'n_clicks'),
     State(TransIDs.SPLIT_TBL, 'derived_virtual_data'),
     State(TransIDs.SPLIT_TBL, 'derived_virtual_selected_rows'),
@@ -92,7 +92,7 @@ def _apply_splits_callback(n_clicks,
         return \
             dash.no_update,\
             dash.no_update, \
-            _create_split_fail("No transaction selected")
+            create_split_fail("No transaction selected")
 
     row = TRANS_DB.iloc[selected_row_original[0]]
     row_id = row[TransDBSchema.ID]
@@ -101,7 +101,7 @@ def _apply_splits_callback(n_clicks,
     # validate split amounts
     if not _split_amounts_eq_orig(row_amount, split_amounts):
         return dash.no_update, dash.no_update, \
-            _create_split_fail(f"Split amount must equal original amount "
+            create_split_fail(f"Split amount must equal original amount "
                                f"({row_amount})")
 
     new_rows = TRANS_DB.apply_split(row_id, split_amounts, split_memos,
@@ -113,7 +113,7 @@ def _apply_splits_callback(n_clicks,
     split_trans_table = [_create_split_trans_table(
         table=table,
         table_creation_func=create_trans_table)]
-    split_success_banner = _create_split_success('Transaction '
+    split_success_banner = create_split_success('Transaction '
                                                  'split successfully')
 
     return main_table, split_trans_table, split_success_banner
@@ -275,6 +275,7 @@ def _get_removed_row_id(df: pd.DataFrame, df_previous: pd.DataFrame):
                Output(TransIDs.FILE_UPLOAD_MODAL, 'opened', allow_duplicate=True),
                Output(TransIDs.TRANS_TBL, 'data', allow_duplicate=True),
                Output(TransIDs.FILE_UPLOADER, 'contents'),
+               Output(TransIDs.NOTIF_DIV, 'children', allow_duplicate=True),
                Input(TransIDs.FILE_UPLOADER, 'contents'),
                State(TransIDs.FILE_UPLOADER, 'filename'),
                State(TransIDs.FILE_UPLOADER_DROPDOWN, 'value'),
@@ -283,7 +284,8 @@ def _upload_file_callback(list_of_contents: List[Any],
                           list_of_names: List[str],
                           dd_val: str):
     if dd_val is None:
-        raise PreventUpdate  # todo open err modal
+        notif = create_error_notif('Please select an account first')
+        return (dash.no_update,)*5 + (notif,)
 
     for file, f_name in zip(list_of_contents, list_of_names):
         content_type, content_string = file.split(',')

@@ -18,7 +18,7 @@ class TransIDs:
     SPLITS_COL = 'splits_col'
     SPLIT_AMOUNT = 'split_amount'
     SPLIT_MEMO = 'split_memo'
-    SPLIT_NOTIF_DIV = 'split_notif_div'
+    NOTIF_DIV = 'split_notif_div'
     APPLY_SPLIT_BTN = 'apply_split_btn'
     SPLIT_TBL = 'split_tbl'
     SPLIT_NOTIF = 'split_notif'

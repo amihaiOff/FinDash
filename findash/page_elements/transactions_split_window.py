@@ -1,4 +1,3 @@
-from functools import partial
 from typing import Optional, List, Callable
 
 import dash_mantine_components as dmc
@@ -75,26 +74,6 @@ def _create_split_trans_table(table_creation_func: Callable,
                                editable=False)
 
 
-def _create_split_notif(msg: str, color: str, title: str, action: str, **kwargs) -> dmc.Notification:
-    return dmc.Notification(
-        title=title,
-        message=msg,
-        color=color,
-        action=action,
-        **kwargs
-    )
-
-
-_create_split_fail = partial(_create_split_notif, color='red',
-                             title='Split error', action='show',
-                             id='split-fail-notif',
-                             icon=DashIconify(icon="akar-icons:circle-x"))
-_create_split_success = partial(_create_split_notif, color='green',
-                                title='Split success', action='show',
-                                id='split-success-notif',
-                                icon=DashIconify(icon="akar-icons:circle-check"))
-
-
 def create_split_trans_modal(create_table_func: Callable) -> dmc.Modal:
     table = _create_split_trans_table(create_table_func)
 
@@ -102,7 +81,6 @@ def create_split_trans_modal(create_table_func: Callable) -> dmc.Modal:
         title='Split Transaction',
         id=TransIDs.SPLIT_MODAL,
         children=[
-            # html.Div(id=TransIDs.SPLIT_NOTIF_DIV),
             html.Div([
                 html.Div(dmc.Button(id=TransIDs.ADD_SPLIT_BTN,
                                     children=['+'],
