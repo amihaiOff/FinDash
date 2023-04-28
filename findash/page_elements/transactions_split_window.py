@@ -75,32 +75,35 @@ def _create_split_trans_table(table_creation_func: Callable,
                                editable=False)
 
 
-def _create_split_alert(msg: str, color: str, title: str) -> dmc.Alert:
-    return dmc.Alert(
-        msg,
-        color=color,
-        withCloseButton=True,
+def _create_split_notif(msg: str, color: str, title: str, action: str, **kwargs) -> dmc.Notification:
+    return dmc.Notification(
         title=title,
-        hide=False
+        message=msg,
+        color=color,
+        action=action,
+        **kwargs
     )
 
 
-_create_split_fail = partial(_create_split_alert, color='red',
-                             title='Split error')
-_create_split_success = partial(_create_split_alert, color='green',
-                                title='Split success')
+_create_split_fail = partial(_create_split_notif, color='red',
+                             title='Split error', action='show',
+                             id='split-fail-notif',
+                             icon=DashIconify(icon="akar-icons:circle-x"))
+_create_split_success = partial(_create_split_notif, color='green',
+                                title='Split success', action='show',
+                                id='split-success-notif',
+                                icon=DashIconify(icon="akar-icons:circle-check"))
 
 
 def create_split_trans_modal(create_table_func: Callable) -> dmc.Modal:
     table = _create_split_trans_table(create_table_func)
-    split_notif = html.Div(id=TransIDs.SPLIT_NOTIF)
 
     return dmc.Modal(
         title='Split Transaction',
         id=TransIDs.SPLIT_MODAL,
         children=[
+            # html.Div(id=TransIDs.SPLIT_NOTIF_DIV),
             html.Div([
-                split_notif,
                 html.Div(dmc.Button(id=TransIDs.ADD_SPLIT_BTN,
                                     children=['+'],
                                     radius='xl',
@@ -138,7 +141,6 @@ def create_split_trans_modal(create_table_func: Callable) -> dmc.Modal:
         ],
         size='90%',
         styles={'modal': {'height': '90vh'}},
-        # className={'modal': 'split-modal-inner'},
         overflow='inside',
         closeOnClickOutside=True,
         closeOnEscape=True,

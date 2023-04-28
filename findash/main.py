@@ -1,6 +1,7 @@
 import dash_bootstrap_components as dbc
 from dash import Dash, html
 import dash
+import dash_mantine_components as dmc
 
 from transactions_db import TransactionsDBParquet, TransDBSchema
 from categories_db import CategoriesDB
@@ -112,25 +113,27 @@ def _create_nav_bar():
 
 
 def setup_pages_container(app):
-    app.layout = dbc.Container([
-        _create_nav_bar(),
-        # dbc.NavbarSimple(brand='FinDash',
-        #                  color='#b3ccf5',
-        #                  links_left=True,
-        #                  sticky='sticky',
-        #                  style={'height': '5vh'},
-        #                  children=[
-        #                      dbc.NavItem(dbc.NavLink('Monthly', href='/monthly')),
-        #                      dbc.NavItem(dbc.NavLink('Breakdown', href='/breakdown')),
-        #                      dbc.NavItem(dbc.NavLink('Categories', href='/categories')),
-        #                      dbc.NavItem(dbc.NavLink('Transactions', href='/transactions'))
-        #                  ]),
-        html.Br(),
-        html.Div(
-            children=[dash.page_container],
-            style={'margin-left': '5rem'}
-        )
-    ])
+    app.layout = dmc.NotificationsProvider(
+        dbc.Container([
+            _create_nav_bar(),
+            # dbc.NavbarSimple(brand='FinDash',
+            #                  color='#b3ccf5',
+            #                  links_left=True,
+            #                  sticky='sticky',
+            #                  style={'height': '5vh'},
+            #                  children=[
+            #                      dbc.NavItem(dbc.NavLink('Monthly', href='/monthly')),
+            #                      dbc.NavItem(dbc.NavLink('Breakdown', href='/breakdown')),
+            #                      dbc.NavItem(dbc.NavLink('Categories', href='/categories')),
+            #                      dbc.NavItem(dbc.NavLink('Transactions', href='/transactions'))
+            #                  ]),
+            html.Br(),
+            html.Div(
+                children=[dash.page_container],
+                style={'margin-left': '5rem'}
+            )
+        ])
+    )
 
 
 # def _validate_accounts(accounts):

@@ -108,8 +108,9 @@ def _create_layout():
         dbc.Row([
             html.Div(_create_main_trans_table(), id=TransIDs.TRANS_TBL_DIV, style={'width': '100%'})
         ])
-    ])
+    ], id='trans_cont')
     container.children.extend([
+        html.Div(id=TransIDs.SPLIT_NOTIF_DIV),
         create_split_trans_modal(create_trans_table),
         create_file_upload_modal(),
         dcc.ConfirmDialog(id=TransIDs.ROW_DEL_CONFIRM_DIALOG,

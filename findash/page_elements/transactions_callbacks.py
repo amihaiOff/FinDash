@@ -13,7 +13,8 @@ from element_ids import TransIDs
 from main import TRANS_DB, CAT_DB
 from page_elements.transactions_layout_creators import _create_main_trans_table
 from page_elements.transactions_split_window import _create_split_input_card, \
-    _create_split_fail, _create_split_trans_table, _create_split_success
+    _create_split_fail, _create_split_trans_table, _create_split_success, \
+    create_split_trans_modal
 from transactions_db import TransDBSchema
 from transactions_importer import import_file
 from utils import detect_changes_in_table, Change, \
@@ -22,15 +23,20 @@ from page_elements.transactions_layout_creators import create_trans_table
 
 
 @dash.callback(
+    Output(TransIDs.SPLIT_TBL_DIV, 'children', allow_duplicate=True),
     Output(TransIDs.SPLIT_MODAL, 'opened'),
     Output(TransIDs.ADD_SPLIT_BTN, 'n_clicks'),
     Input(TransIDs.SPLIT_ICON, 'n_clicks'),
     State(TransIDs.SPLIT_MODAL, 'opened'),
+    # State('trans_cont', 'children'),
     config_prevent_initial_callbacks=True
 )
 def _open_split_trans_modal_callback(_, opened):
     n_clicks = 0
-    return not opened, n_clicks
+    # modal = create_split_trans_modal(create_trans_table),
+    # children.append(modal)
+    table = _create_split_trans_table(create_trans_table)
+    return [table], not opened, n_clicks
 
 
 @dash.callback(
@@ -65,7 +71,7 @@ def _split_amounts_eq_orig(row_amount, split_amounts):
 @dash.callback(
     Output(TransIDs.TRANS_TBL_DIV, 'children'),
     Output(TransIDs.SPLIT_TBL_DIV, 'children'),
-    Output(TransIDs.SPLIT_NOTIF, 'children'),
+    Output(TransIDs.SPLIT_NOTIF_DIV, 'children'),
     Input(TransIDs.APPLY_SPLIT_BTN, 'n_clicks'),
     State(TransIDs.SPLIT_TBL, 'derived_virtual_data'),
     State(TransIDs.SPLIT_TBL, 'derived_virtual_selected_rows'),
