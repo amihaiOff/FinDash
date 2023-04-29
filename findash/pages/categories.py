@@ -1,19 +1,44 @@
-from typing import List
+from typing import List, Optional
 
 import dash
 import dash_mantine_components as dmc
 import dash_bootstrap_components as dbc
 import pandas as pd
-from dash import html, dcc, Input, Output
+from dash import html, dcc, Input, Output, dash_table, State, ALL, MATCH
 import plotly.graph_objects as go
+from dash.dash_table.Format import Format, Symbol
+from dash.exceptions import PreventUpdate
 
 from main import CAT_DB
 from categories_db import CatDBSchema
 from shared_elements import create_page_heading
-from utils import format_currency_num, create_cat_table
+from utils import format_currency_num, SHEKEL_SYM
 from element_ids import CatIDs
 
 dash.register_page(__name__)
+
+
+class CatTableCols:
+    CATEGORY = 'Category'
+    BUDGET = 'Budget'
+
+
+def create_cat_table(df: pd.DataFrame, for_id: Optional[str] = None):
+    cat_col = {'name': CatTableCols.CATEGORY, 'id': CatTableCols.CATEGORY,
+               'type': 'text', 'editable': True}
+    budget_col = {'name': CatTableCols.BUDGET, 'id': CatTableCols.BUDGET,
+                  'type': 'numeric', 'editable': True,
+                  'format': Format(group=',').symbol(Symbol.yes).symbol_suffix(SHEKEL_SYM)}
+
+    return dash_table.DataTable(
+        id={'type': 'cat-table', 'index': for_id},
+        data=df.to_dict('records'),
+        columns=[cat_col, budget_col],
+        style_cell={'textAlign': 'left',
+                    'border-right': 'none',
+                    'border-left': 'none'},
+        style_header={'fontWeight': 'bold'}
+    )
 
 
 def _create_group_card(group_name: str,
@@ -79,6 +104,7 @@ def _create_category_pie_chart_col():
 
 def _create_layout():
     return dbc.Container([
+        html.Div(id=CatIDs.HIDDEN_DIV, style={'display': 'none'}),
         dbc.Row([
             create_page_heading('Spending Categories')
         ]),
@@ -104,3 +130,24 @@ layout = _create_layout
 )
 def update_pie_chart(group_or_cat):
     return _create_pie_chart(group_or_cat)
+
+
+@dash.callback(
+    Output({'type': 'cat-table', 'index': MATCH}, "children"),  # this is never actually updated
+    Input({'type': 'cat-table', 'index': MATCH}, "data"),
+    Input({'type': 'cat-table', 'index': MATCH}, "data_previous"),
+    config_prevent_initial_callbacks=True
+)
+def _change_cat_budget(data, data_previous):
+    """
+    this callback does NOT update its declared output
+    """
+    data = pd.DataFrame.from_records(data)
+    data_previous = pd.DataFrame.from_records(data_previous)
+    change_ind = data.index[data[CatTableCols.BUDGET] != data_previous[CatTableCols.BUDGET]]
+    if len(change_ind) > 1:
+        raise AssertionError('Only one category budget should be changed at a time')
+    new_budget = data.loc[change_ind, CatTableCols.BUDGET].iloc[0]
+    cat_name = data.loc[change_ind, CatTableCols.CATEGORY].iloc[0]
+    CAT_DB.update_category_budget(cat_name, new_budget)
+    raise PreventUpdate

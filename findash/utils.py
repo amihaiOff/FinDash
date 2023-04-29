@@ -248,24 +248,20 @@ def create_table(df: pd.DataFrame):
     return table
 
 
-def create_cat_table(df: pd.DataFrame, for_id: Optional[str] = None):
-    cat_col = {'name': 'Category', 'id': 'Category', 'type': 'text', 'editable': True}
-    budget_col = {'name': 'Budget', 'id': 'Budget', 'type': 'numeric', 'editable': True,
-                  'format': Format(group=',').symbol(Symbol.yes).symbol_suffix(SHEKEL_SYM)}
-
-    return dash_table.DataTable(
-        id={'type': 'cat-table', 'index': for_id},
-        data=df.to_dict('records'),
-        columns=[cat_col, budget_col],
-        style_cell={'textAlign': 'left',
-                    'border-right': 'none',
-                    'border-left': 'none'},
-        style_header={'fontWeight': 'bold'}
-    )
-
-
-# col_def['format'] = Format(group=',').symbol(Symbol.yes).symbol_suffix(
-#     SHEKEL_SYM)
+# def create_cat_table(df: pd.DataFrame, for_id: Optional[str] = None):
+#     cat_col = {'name': 'Category', 'id': 'Category', 'type': 'text', 'editable': True}
+#     budget_col = {'name': 'Budget', 'id': 'Budget', 'type': 'numeric', 'editable': True,
+#                   'format': Format(group=',').symbol(Symbol.yes).symbol_suffix(SHEKEL_SYM)}
+#
+#     return dash_table.DataTable(
+#         id={'type': 'cat-table', 'index': for_id},
+#         data=df.to_dict('records'),
+#         columns=[cat_col, budget_col],
+#         style_cell={'textAlign': 'left',
+#                     'border-right': 'none',
+#                     'border-left': 'none'},
+#         style_header={'fontWeight': 'bold'}
+#     )
 
 
 def get_change_type(df: pd.DataFrame, df_prev: pd.DataFrame):

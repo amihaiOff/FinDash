@@ -68,8 +68,8 @@ class CategoriesDB:
 
     def update_category_budget(self, category_name: str,
                                budget: float) -> None:
-        self._db[self._db[CatDBSchema.CAT_NAME] == category_name][
-            CatDBSchema.BUDGET] = budget
+        row_ind = self._db[CatDBSchema.CAT_NAME] == category_name
+        self._db.loc[row_ind, CatDBSchema.BUDGET] = budget
         self._save_cat_db(SETTINGS.cat_db_path)
 
     def delete_category_budget(self, category_name: str) -> None:

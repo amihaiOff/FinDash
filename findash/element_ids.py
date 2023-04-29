@@ -59,6 +59,7 @@ class CatIDs:
     CHOOSE_GROUP = 'group_or_cat_dd'
     PIE_CHART_GROUPS = 'pie_chart'
     PIE_CHART_CAT = 'pie_chart_cat'
+    HIDDEN_DIV = 'hidden_div'
 
 
 class GeneralIDs:
