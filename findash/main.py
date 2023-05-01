@@ -1,3 +1,5 @@
+import logging
+
 import dash_bootstrap_components as dbc
 from dash import Dash, html
 import dash
@@ -152,6 +154,17 @@ if 'CAT_DB' not in globals():
 
 if 'TRANS_DB' not in globals():
     TRANS_DB = setup_trans_db(CAT_DB)
+
+
+def setup_logger():
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s %(levelname)s %(message)s',
+        datefmt='%m-%d %H:%M:%S',
+        handlers=[
+            logging.FileHandler("logs/findash.log"),
+        ]
+    )
 
 
 def setup_app():

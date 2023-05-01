@@ -128,8 +128,12 @@ class CategoriesDB:
     def get_categories(self) -> List[str]:
         return self._db[CatDBSchema.CAT_NAME].to_list()
 
-    def get_group_budget(self, group_name: str) -> pd.DataFrame:
+    def get_group(self, group_name: str) -> pd.DataFrame:
         return self._db[self._db[CatDBSchema.CAT_GROUP] == group_name]
+
+    def get_group_budget(self, group_name: str) -> pd.DataFrame:
+        group_ind = self._db[CatDBSchema.CAT_GROUP] == group_name
+        return self._db.loc[group_ind, CatDBSchema.BUDGET].sum()
 
 
 def _get_group_and_cat_for_dropdown(cat_db):
