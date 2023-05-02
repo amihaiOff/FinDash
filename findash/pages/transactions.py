@@ -94,6 +94,9 @@ def _create_add_action_icons():
 
 
 def _create_layout():
+    import logging
+    logger = logging.getLogger('Logger')
+    logger.info('Creating transactions layout')
     container = dmc.Grid([
         dbc.Row([
             create_page_heading('Transactions')

@@ -3,6 +3,7 @@ from datetime import datetime
 from functools import reduce
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Optional, Union
+import logging
 
 import pandas as pd
 
@@ -16,6 +17,8 @@ The purpose of this module is to provide a database for transactions.
 The database in a collection of parquet files, one per month, organized by year.
 This is the recorded history of the transactions.
 """
+
+logger = logging.getLogger('Logger')
 
 
 @dataclass
@@ -197,6 +200,7 @@ class TransactionsDBParquet:
 
         # set monthly_trans
         self.set_specific_month(*get_current_year_and_month())
+        logger.info(f'loaded trans db from {db_path}')
 
     def _set_cat_col_categories(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -236,6 +240,7 @@ class TransactionsDBParquet:
             cond1 = self._db[TransDBSchema.DATE].dt.year == int(year)
             cond2 = self._db[TransDBSchema.DATE].dt.month == int(month)
             self._db[cond1 & cond2].to_parquet(year_dir / f'{month}.pq')
+            logger.info(f'saved transactions db to {year_dir / f"{month}.pq"}')
 
     def save_db_from_uuids(self, uuid_list: List[str]) -> None:
         """
@@ -341,6 +346,7 @@ class TransactionsDBParquet:
                                 include_date=True,
                                 datetime_format='%Y-%m-%d')
         self._db = db.reset_index(drop=True)
+        logger.info(f'added new row with id {uuid}')
 
         self.save_db_from_uuids([uuid])
 

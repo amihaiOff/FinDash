@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "findash"
+version = "0.1.0"
+description = "Financial dash for budgeting"
+authors = ["amihai <amihaio@gmail.com>"]
+readme = "README.md"
+
+
+[tool.poetry.dependencies]
+python = "^3.9"
+dash = "==2.9.1"
+pandas = "==1.5.2"
+plotly = "==5.9"
+dash-mantine-components = "==0.12.0"
+dash-bootstrap-components = "==1.4.1"
+dash-iconify = "==0.1.2"
+
+
+[tool.poetry.dev-dependencies]
+pytest = "==7.2.2"
+pytest-env = "==0.8.1"
+moto = "==4.1.6"
+pytest-mock = "==3.10.0"
+pre-commit = "==3.2.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
