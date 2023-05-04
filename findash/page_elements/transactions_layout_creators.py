@@ -117,7 +117,7 @@ def create_trans_table(id: str,
                                 row_deletable=rows_deletable,
                                 fill_width=True,
                                 hidden_columns=[TransDBSchema.ID],
-                                style_table={'overflowX': 'auto', 'width': '100%'},
+                                style_table={'overflowX': 'auto'},
                                 columns=col_defs,
                                 dropdown=_setup_table_cell_dropdowns(),
                                 style_data_conditional=[
@@ -125,7 +125,6 @@ def create_trans_table(id: str,
                                         'backgroundColor': 'rgb(240, 246, 255)'},
                                     {'if': {'column_id': TransDBSchema.MEMO},
                                         'textOverflow': 'ellipsis',
-                                        # 'maxWidth': 200,
                                         'overflow': 'hidden'},
                                     {'if': {'column_id': TransDBSchema.DATE},
                                         'color': 'gray'},
@@ -133,12 +132,12 @@ def create_trans_table(id: str,
                                 tooltip_data=tooltip_data,
                                 tooltip_duration=20000,
                                 style_data={
-                                    'border': 'none',
+                                    # 'border': 'none',
                                     },
                                 style_cell={
                                     'textAlign': 'center',
                                     'font-family': 'sans-serif',
-                                    'font-size': '12px',
+                                    'font-size': '13px',
                                     'padding-right': '5px',
                                     'padding-left': '5px',
                                     'background-color': 'white',
@@ -148,7 +147,8 @@ def create_trans_table(id: str,
                                 },
                                 style_header={
                                     'font-weight': 'bold',
-                                    'border-bottom': '1px'
+                                    'font-size': '16px',
+                                    'color': 'gray',
                                 })
 
 

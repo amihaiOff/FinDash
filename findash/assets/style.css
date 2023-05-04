@@ -11,7 +11,7 @@
     bottom: 0;
     width: 5rem;
     padding: 2rem 1rem;
-    background-color: #cbd3dd;
+    background-color: #dfe3ea;
     z-index: 1050;
     transition: width 0.1s ease-in-out;
 }
@@ -22,26 +22,26 @@
 }
 
 /* make sure the contents of the navlink don't wrap when navbar collapses */
-.sidebar .nav-link {
+.sidebar .mantine-NavLink-label {
     width: 100%;
     overflow: hidden;
     white-space: nowrap;
 }
 
 /* fix the width of the icons */
-.sidebar .nav-link i {
+.sidebar .mantine-NavLink-label i {
     width: 1rem;
 }
 
 /* hide the navlink labels by default */
-.sidebar .nav-link span {
+.sidebar .mantine-NavLink-label span {
     visibility: hidden;
     opacity: 1;
     transition: opacity 0.1s ease-in-out;
 }
 
 /* when the sidebar is hovered, reveal the labels */
-.sidebar:hover .nav-link span {
+.sidebar:hover .mantine-NavLink-label span {
     visibility: visible;
     opacity: 1;
     color: black;
@@ -121,7 +121,10 @@
 }
 
 .dash-spreadsheet-menu {
-margin: 1% 0 1% 0;
+    margin: 1% 0 1% 0;
+    position: absolute;
+    bottom: 0px;
+
 }
 
 .export {
@@ -150,4 +153,13 @@ margin: 1% 0 1% 0;
     color:white;
     box-shadow: 0 1px 3px lightgrey;
     background-color: lightgrey;
+}
+
+.delete-group {
+    color:grey;
+    transition:.3s;
+}
+
+.delete-group:hover {
+    color:red;
 }

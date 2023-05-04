@@ -4,6 +4,7 @@ import dash_bootstrap_components as dbc
 from dash import Dash, html
 import dash
 import dash_mantine_components as dmc
+from dash_iconify import DashIconify
 
 from transactions_db import TransactionsDBParquet, TransDBSchema
 from categories_db import CategoriesDB
@@ -51,45 +52,70 @@ def setup_trans_db(cat_db: CategoriesDB):
 def _create_nav_bar():
     return html.Div(
         [
-            html.Div([html.H2("FinDash", style={"color": "white"})],
+            html.Div([html.H2("FinDash", style={"color": "darkgray"})],
                      className="sidebar-header",
             ),
             html.Hr(),
-            dbc.Nav(
-                [
-                    dbc.NavLink(
-                        [html.I(className="fas fa-home me-2"),
-                         html.Span("Monthly")],
-                        href="/monthly",
-                        active="exact",
-                    ),
-                    dbc.NavLink(
-                        [
-                            html.I(className="fas fa-calendar-alt me-2"),
-                            html.Span("Breakdown"),
-                        ],
-                        href="/breakdown",
-                        active="exact",
-                    ),
-                    dbc.NavLink(
-                        [
-                            html.I(className="fas fa-envelope-open-text me-2"),
-                            html.Span("Transactions"),
-                        ],
-                        href="/transactions",
-                        active="exact",
-                    ),
-                    dbc.NavLink([
-                        html.I(className="fas fa-chart-line me-2"),
-                        html.Span("Categories"),
-                        ],
-                        href="/categories",
-                        active="exact",
-                    ),
-                ],
-                vertical=True,
-                pills=True,
+            dmc.NavLink(
+                icon=DashIconify(icon='ic:twotone-calendar-month', width=30,
+                                 color='gray'),
+                label='Monthly',
+                href='/monthly',
             ),
+            dmc.NavLink(
+                icon=DashIconify(icon='ic:outline-insert-chart-outlined', width=30,
+                                 color='gray'),
+                label='Breakdown',
+                href='/breakdown',
+            ),
+            dmc.NavLink(
+                icon=DashIconify(icon='ic:twotone-category', width=30,
+                                 color='gray'),
+                label='Categories',
+                href='/categories',
+            ),
+            dmc.NavLink(
+                icon=DashIconify(icon='material-symbols:table-rows-narrow-outline', width=30,
+                                 color='gray'),
+                label='Transactions',
+                href='/transactions',
+            ),
+    #         dbc.Nav(
+    #             [
+    #                 dbc.NavLink(
+    #                     [DashIconify(icon='ic:twotone-calendar-month', width=30),
+    #                      dmc.Text("Monthly", className='nav-link')],
+    #                      # html.Span("Monthly")],
+    #                     href="/monthly",
+    #                     active="exact",
+    #                 ),
+    #                 dbc.NavLink(
+    #                     [
+    #                         html.I(className="fas fa-calendar-alt me-2"),
+    #                         html.Span("Breakdown"),
+    #                     ],
+    #                     href="/breakdown",
+    #                     active="exact",
+    #                 ),
+    #                 dbc.NavLink(
+    #                     [
+    #                         html.I(className="fas fa-envelope-open-text me-2"),
+    #                         html.Span("Transactions"),
+    #                     ],
+    #                     href="/transactions",
+    #                     active="exact",
+    #                 ),
+    #                 dbc.NavLink([
+    #                     html.I(className="fas fa-chart-line me-2"),
+    #                     html.Span("Categories"),
+    #                     ],
+    #                     href="/categories",
+    #                     active="exact",
+    #                 ),
+    #             ],
+    #             vertical=True,
+    #             pills=True,
+    #         ),
         ],
         className="sidebar",
     )
@@ -127,7 +153,7 @@ def setup_app():
 def run_frontend():
     app = setup_app()
     logger.info('Running app')
-    app.run(port=8002, debug=True)
+    app.run(port=8001, debug=True)
 
 
 # _validate_accounts(ACCOUNTS)

@@ -78,7 +78,7 @@ def _create_action_icon(icon, id, tooltip_label: str, size='xl'):
                                       id=id,
                                       size=size),
                        label=tooltip_label,
-                       position='top',
+                       position='right',
                        color='gray',
                        transition='slide-up',
                        withArrow=True,
@@ -86,10 +86,18 @@ def _create_action_icon(icon, id, tooltip_label: str, size='xl'):
 
 
 def _create_add_action_icons():
-    return dmc.Group([
-        _create_action_icon('mdi:table-row-plus-before', TransIDs.ADD_ROW_BTN, 'Add Row'),
-        _create_action_icon('ic:round-upload-file', TransIDs.UPLOAD_FILE_ICON, 'Upload File'),
-        _create_action_icon('ic:outline-splitscreen', TransIDs.SPLIT_ICON, 'Split Transaction')
+    return dmc.HoverCard([
+        dmc.HoverCardTarget(DashIconify(icon='mdi:dots-horizontal', width=35, color='gray')),
+        dmc.HoverCardDropdown([
+            dmc.Stack([
+                _create_action_icon('mdi:table-row-plus-before',
+                                    TransIDs.ADD_ROW_BTN, 'Add Row'),
+                _create_action_icon('ic:round-upload-file',
+                                    TransIDs.UPLOAD_FILE_ICON, 'Upload File'),
+                _create_action_icon('ic:outline-splitscreen',
+                                    TransIDs.SPLIT_ICON, 'Split Transaction')
+            ])
+        ])
     ])
 
 
@@ -98,19 +106,19 @@ def _create_layout():
     logger = logging.getLogger('Logger')
     logger.info('Creating transactions layout')
     container = dmc.Grid([
-        dbc.Row([
+        dmc.Col([
             create_page_heading('Transactions')
-        ]),
-        dbc.Row([
+        ], span=12),
+        dmc.Space(h=150),
+        dmc.Col([
             dmc.Group([
                 _create_filtering_components(),
                 _create_add_action_icons()
-            ], position='apart', style={'box-shadow': '5px 5px 5px -3px rgba(0, 0, 0, 0.5)',
-                                        'border-radius': '10px'})
-        ], style={'margin-bottom': '40px'}),
-        dbc.Row([
+            ], position='apart')
+        ], style={'margin-bottom': '40px'}, span=12),
+        dmc.Col([
             html.Div(_create_main_trans_table(), id=TransIDs.TRANS_TBL_DIV, style={'width': '100%'})
-        ])
+        ], span=12)
     ], id='trans_cont')
     container.children.extend([
         html.Div(id=TransIDs.NOTIF_DIV),

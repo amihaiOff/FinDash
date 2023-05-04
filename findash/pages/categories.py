@@ -8,6 +8,7 @@ from dash import html, dcc, Input, Output, dash_table, State, ALL, MATCH, ctx
 import plotly.graph_objects as go
 from dash.dash_table.Format import Format, Symbol
 from dash.exceptions import PreventUpdate
+from dash_iconify import DashIconify
 
 from main import CAT_DB
 from categories_db import CatDBSchema
@@ -58,7 +59,18 @@ def _create_group_card(group_name: str,
             ], position='apart')
         ], withBorder=True, className="category-card-header"),
         html.Div(dmc.Table(create_cat_table(cat_df, group_name=group_name, index=index)),
-                 className='category-card')
+                 className='category-card'),
+        dmc.CardSection([
+            dmc.Group([
+                dmc.ActionIcon(DashIconify(icon='mdi:delete-forever-outline',
+                                           className='delete-group', width=20),
+                               id={'type': 'delete-group', 'group_name': group_name, 'index': index},
+                               size='lg'),
+                dmc.ActionIcon(DashIconify(icon='mdi:plus', width=20),
+                               id={'type': 'add-category', 'group_name': group_name, 'index': index},
+                               size='lg')
+            ], position='apart')
+        ])
     ], withBorder=True, shadow="md", radius="md")
 
 
