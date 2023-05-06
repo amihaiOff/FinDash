@@ -72,7 +72,6 @@ def _expenses_over_time_by_group(group: str):
     grouped = sort_by_date(grouped)
 
     fig = px.bar(data_frame=grouped, x=grouped.index, y=TransDBSchema.OUTFLOW)
-    fig.update_layout(title_text=f'Expenses by {group} over time')
     fig.update_yaxes(title_text='Amount')
     fig.update_xaxes(title_text='Month')
 
@@ -123,25 +122,26 @@ def _create_layout():
         dbc.Row([
            create_page_heading('Breakdown')
         ]),
-
         dbc.Row([
-            dmc.Text('Income vs. Outflow by Month', style={'font-size': '20px', 'color':'lightblue',
-                                                           'margin': 0, 'padding': 0})
+            dmc.Text('Income vs. Outflow by Month', className='breakdown-fig-header')
         ]),
         dbc.Row([
-           dbc.Col(dcc.Graph(figure=_create_under_over_card()), width=10),
+           dbc.Col(dcc.Graph(figure=_create_under_over_card()), width=12),
         ]),
         dbc.Row([
+            dmc.Group([
+                dmc.Text('', className='breakdown-fig-header',
+                         id=BreakdownIDs.EXPENSES_OVER_TIME_BY_GROUP_TITLE),
+                _create_groups_dd(BreakdownIDs.EXPENSES_OVER_TIME_BY_GROUP_DD)
+            ], position='apart'),
             dbc.Col(dcc.Graph(figure=_expenses_over_time_by_group(DEFAULT_GROUP),
                               id=BreakdownIDs.EXPENSES_OVER_TIME_BY_GROUP_FIG),
-                    width=10),
-            dbc.Col(_create_groups_dd(BreakdownIDs.EXPENSES_OVER_TIME_BY_GROUP_DD,),
-                    width=2)
+                    width=12),
         ]),
         dbc.Row([
           dmc.Group([
-              dmc.Text('', style={'font-size': '20px', 'color': 'lightblue'},
-                       id=BreakdownIDs.EXPENSES_OVER_TIME_BY_GROUP_TITLE),
+              dmc.Text('', className='breakdown-fig-header',
+                       id=BreakdownIDs.BUDGET_USAGE_TITLE),
               _create_groups_dd(BreakdownIDs.BUDGET_USAGE_DD)
           ], position='apart')
         ]),
@@ -158,15 +158,16 @@ layout = _create_layout
 
 @dash.callback(
     Output(BreakdownIDs.EXPENSES_OVER_TIME_BY_GROUP_FIG, 'figure'),
+    Output(BreakdownIDs.EXPENSES_OVER_TIME_BY_GROUP_TITLE, 'children'),
     Input(BreakdownIDs.EXPENSES_OVER_TIME_BY_GROUP_DD, 'value')
 )
 def expenses_over_time_by_group_callback(dd_value: str):
-    return _expenses_over_time_by_group(dd_value)
+    return _expenses_over_time_by_group(dd_value), f'Expenses by {dd_value} over time'
 
 
 @dash.callback(
     Output(BreakdownIDs.BUDGET_USAGE_FIG, 'figure'),
-    Output(BreakdownIDs.EXPENSES_OVER_TIME_BY_GROUP_TITLE, 'children'),
+    Output(BreakdownIDs.BUDGET_USAGE_TITLE, 'children'),
     Input(BreakdownIDs.BUDGET_USAGE_DD, 'value')
 )
 def expenses_over_time_by_group_callback(dd_value: str):

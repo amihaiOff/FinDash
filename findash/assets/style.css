@@ -11,9 +11,14 @@
     bottom: 0;
     width: 5rem;
     padding: 2rem 1rem;
-    background-color: #dfe3ea;
     z-index: 1050;
     transition: width 0.1s ease-in-out;
+    /* glassmorohism */
+    background-color:  rgba( 255,255,255, 0.1);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border-radius: 10px;
+    border: 1px solid rgba( 255,255,255, 0.1);
 }
 
 /* when the user hovers on the sidebar, expand it */
@@ -162,4 +167,31 @@
 
 .delete-group:hover {
     color:red;
+}
+
+.mantine-NavLink-label:hover {
+    color: #76a2cf;
+}
+
+.mantine-NavLink-label {
+    color: gray;
+}
+
+.mantine-NavLink-root:hover {
+    background-color: transparent;
+    color: black;
+}
+
+.hover-card-dropdown {
+   background-color:  rgba( 255,255,255, 0.1);
+   backdrop-filter: blur(4px);
+   -webkit-backdrop-filter: blur(4px);
+   border-radius: 10px;
+   border: 1px solid #eae8e8;
+/*rgba( 255,255,255, 0.7);*/
+}
+
+.breakdown-fig-header {
+    color: lightgray;
+    font-size: xx-large;
 }

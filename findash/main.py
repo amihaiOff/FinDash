@@ -80,42 +80,6 @@ def _create_nav_bar():
                 label='Transactions',
                 href='/transactions',
             ),
-    #         dbc.Nav(
-    #             [
-    #                 dbc.NavLink(
-    #                     [DashIconify(icon='ic:twotone-calendar-month', width=30),
-    #                      dmc.Text("Monthly", className='nav-link')],
-    #                      # html.Span("Monthly")],
-    #                     href="/monthly",
-    #                     active="exact",
-    #                 ),
-    #                 dbc.NavLink(
-    #                     [
-    #                         html.I(className="fas fa-calendar-alt me-2"),
-    #                         html.Span("Breakdown"),
-    #                     ],
-    #                     href="/breakdown",
-    #                     active="exact",
-    #                 ),
-    #                 dbc.NavLink(
-    #                     [
-    #                         html.I(className="fas fa-envelope-open-text me-2"),
-    #                         html.Span("Transactions"),
-    #                     ],
-    #                     href="/transactions",
-    #                     active="exact",
-    #                 ),
-    #                 dbc.NavLink([
-    #                     html.I(className="fas fa-chart-line me-2"),
-    #                     html.Span("Categories"),
-    #                     ],
-    #                     href="/categories",
-    #                     active="exact",
-    #                 ),
-    #             ],
-    #             vertical=True,
-    #             pills=True,
-    #         ),
         ],
         className="sidebar",
     )

@@ -130,7 +130,8 @@ def _create_banner_card(title: str,
         body=True,
         id=id,
         outline=True,
-        color='light'
+        color='light',
+        style={'border': '3px solid'}
     )
 
 

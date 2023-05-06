@@ -19,21 +19,27 @@ from element_ids import CatIDs
 dash.register_page(__name__)
 
 
-class CatTableCols:
+class CatTableSchema:
     CATEGORY = 'Category'
     BUDGET = 'Budget'
 
+    @classmethod
+    def get_new_row(cls):
+        return {cls.CATEGORY: CAT_DB.get_new_category_name(),
+                cls.BUDGET: 0}
+
 
 def create_cat_table(df: pd.DataFrame, group_name: str, index: int):
-    cat_col = {'name': CatTableCols.CATEGORY, 'id': CatTableCols.CATEGORY,
+    cat_col = {'name': CatTableSchema.CATEGORY, 'id': CatTableSchema.CATEGORY,
                'type': 'text', 'editable': True}
-    budget_col = {'name': CatTableCols.BUDGET, 'id': CatTableCols.BUDGET,
+    budget_col = {'name': CatTableSchema.BUDGET, 'id': CatTableSchema.BUDGET,
                   'type': 'numeric', 'editable': True,
                   'format': Format(group=',').symbol(Symbol.yes).symbol_suffix(SHEKEL_SYM)}
 
     return dash_table.DataTable(
         id={'type': 'cat-table', 'index': index, 'group_name': group_name},
         data=df.to_dict('records'),
+        row_deletable=True,
         columns=[cat_col, budget_col],
         style_cell={'textAlign': 'left',
                     'border-right': 'none',
@@ -170,20 +176,64 @@ def update_group_budget(group_name_and_ind, children):
     Input({'type': 'cat-table', 'group_name': ALL, 'index': ALL}, "data_previous"),
     config_prevent_initial_callbacks=True
 )
-def _change_cat_budget(data, data_previous):
+def _update_group_table(data, data_previous):
     """
+    adding category logic does not run thru this callback since the data_previous
+    is not updated when data is changed via callback
     """
-    trig_ind = ctx.triggered_id.index
-    data = pd.DataFrame.from_records(data[trig_ind])
-    data_previous = pd.DataFrame.from_records(data_previous[trig_ind])
+    changed_ind = ctx.triggered_id.index
     changed_group_name = ctx.triggered_id['group_name']
-    changed_ind = ctx.triggered_id['index']
 
-    changed_cat = data.index[data[CatTableCols.BUDGET] != data_previous[CatTableCols.BUDGET]]
-    if len(changed_cat) > 1:
-        raise AssertionError('Only one category budget should be changed at a time')
-    new_budget = data.loc[changed_cat, CatTableCols.BUDGET].iloc[0]
-    cat_name = data.loc[changed_cat, CatTableCols.CATEGORY].iloc[0]
-    CAT_DB.update_category_budget(cat_name, new_budget)
-    fig = _create_pie_chart('group', CatIDs.PIE_CHART_GROUPS)
-    return [fig], dict(group_name=changed_group_name, index=changed_ind)
+    if data_previous[changed_ind] is None or \
+            len(data[changed_ind]) > len(data_previous[changed_ind]):
+        # when adding a new category, the data_previous is not updated so
+        # it is either None or, if there was a different change before adding
+        # the row, the length is greater than the new data, and we don't deal
+        # with new categories in this callback
+        raise PreventUpdate
+
+    data = pd.DataFrame.from_records(data[changed_ind])
+    data_previous = pd.DataFrame.from_records(data_previous[changed_ind])
+
+    if len(data) < len(data_previous):  # delete category
+        deleted_idx = data_previous.loc[~data_previous[CatTableSchema.CATEGORY].isin(data[CatTableSchema.CATEGORY])].index
+        CAT_DB.delete_category(data_previous.loc[deleted_idx, CatTableSchema.CATEGORY].iloc[0])
+
+        fig = _create_pie_chart('group', CatIDs.PIE_CHART_GROUPS)
+        return [fig], dict(group_name=changed_group_name, index=changed_ind)
+
+    changed_name_idx = data.index[data[CatTableSchema.CATEGORY] !=
+                                  data_previous[CatTableSchema.CATEGORY]]
+    changed_budget_idx = data.index[data[CatTableSchema.BUDGET] !=
+                                    data_previous[CatTableSchema.BUDGET]]
+    if len(changed_budget_idx) > 1 or len(changed_name_idx) > 1:
+        raise ValueError('Only one category can be changed at a time')
+
+    if len(changed_name_idx) == 1:
+        CAT_DB.update_category_name(
+            data_previous.loc[changed_name_idx, CatTableSchema.CATEGORY].iloc[0],
+            data.loc[changed_name_idx, CatTableSchema.CATEGORY].iloc[0])
+
+        fig = _create_pie_chart('group', CatIDs.PIE_CHART_GROUPS)
+        return fig, dash.no_update
+
+    if len(changed_budget_idx) == 1:
+        new_budget = data.loc[changed_budget_idx, CatTableSchema.BUDGET].iloc[0]
+        cat_name = data.loc[changed_budget_idx, CatTableSchema.CATEGORY].iloc[0]
+        CAT_DB.update_category_budget(cat_name, new_budget)
+
+        fig = _create_pie_chart('group', CatIDs.PIE_CHART_GROUPS)
+        return [fig], dict(group_name=changed_group_name, index=changed_ind)
+
+
+@dash.callback(
+    Output({'type': 'cat-table', 'group_name': MATCH, 'index': MATCH}, "data"),
+    Input({'type': 'add-category', 'group_name': MATCH, 'index': MATCH}, "n_clicks"),
+    State({'type': 'cat-table', 'group_name': MATCH, 'index': MATCH}, "data"),
+    config_prevent_initial_callbacks=True
+)
+def _add_category(_, datas):
+    changed_group_name = ctx.triggered_id['group_name']
+    CAT_DB.add_category(changed_group_name)
+    datas.append(CatTableSchema.get_new_row())
+    return datas

@@ -14,6 +14,7 @@ class CatDBSchema:
     CAT_GROUP: str = 'cat_group'
     IS_CONSTANT: str = 'is_constant'
     BUDGET: str = 'budget'
+    NEW_CATEGORY_NAME = 'New Category'
 
 
 class CategoriesDB:
@@ -21,8 +22,10 @@ class CategoriesDB:
         self._db = pd.DataFrame()
         self._payee2cat = {}
         self._cat2payee = {}
+        self._new_cat_counter = 0
 
         self._load_dbs()
+        self._update_new_category_counter()
 
     def _load_dbs(self):
         """
@@ -54,27 +57,55 @@ class CategoriesDB:
     def _save_cat_db(self, db_path):
         self._db.to_parquet(db_path)
 
-    def add_category(self, category_name: str) -> None:
-        if category_name not in self.get_categories():
-            self._db = self._db.append(
-                {CatDBSchema.CAT_NAME: category_name},
-                ignore_index=True)
-            self._save_cat_db(SETTINGS.cat_db_path)
+    def _create_new_category_row(self, cat_group: str):
+        self._new_cat_counter += 1
+        return {
+            CatDBSchema.CAT_GROUP: cat_group,
+            CatDBSchema.CAT_NAME: self.get_new_category_name(),
+            CatDBSchema.IS_CONSTANT: False,
+            CatDBSchema.BUDGET: 0
+        }
+
+    def add_category(self,
+                     category_group: str) -> None:
+        self._db = self._db.append(
+            self._create_new_category_row(category_group),
+            ignore_index=True)
+        self._save_cat_db(SETTINGS.cat_db_path)
+
+    def update_category_name(self, old_name: str, new_name: str) -> None:
+        if new_name in self.get_categories():
+            # todo make into error for user
+            raise ValueError(f'Category {new_name} already exists')
+
+        self._db.loc[self._db[CatDBSchema.CAT_NAME] == old_name,
+                     CatDBSchema.CAT_NAME] = new_name
+        self._save_cat_db(SETTINGS.cat_db_path)
+
+    def _update_new_category_counter(self):
+        new_cat_only = self._db[self._db[CatDBSchema.CAT_NAME].str.startswith(
+                CatDBSchema.NEW_CATEGORY_NAME)][CatDBSchema.CAT_NAME]
+
+        if len(new_cat_only) == 0:
+            self._new_cat_counter = 0
+        else:
+            self._new_cat_counter = new_cat_only.str.split(
+                CatDBSchema.NEW_CATEGORY_NAME).str[1].astype(int).max()
 
     def delete_category(self, category_name: str) -> None:
         self._db = self._db[
             self._db[CatDBSchema.CAT_NAME] != category_name]
+
         self._save_cat_db(SETTINGS.cat_db_path)
+
+        if category_name.startswith(CatDBSchema.NEW_CATEGORY_NAME):
+            self._update_new_category_counter()
 
     def update_category_budget(self, category_name: str,
                                budget: float) -> None:
         row_ind = self._db[CatDBSchema.CAT_NAME] == category_name
         self._db.loc[row_ind, CatDBSchema.BUDGET] = budget
         self._save_cat_db(SETTINGS.cat_db_path)
-
-    def delete_category_budget(self, category_name: str) -> None:
-        self._db[self._db[CatDBSchema.CAT_NAME] == category_name][
-            CatDBSchema.BUDGET] = None
 
     def update_payee_to_cat_mapping(self, payee: str, cat: str):
         original_cat = self._payee2cat.get(payee)
@@ -99,11 +130,12 @@ class CategoriesDB:
         else:
             return None, None
 
+    def get_new_category_name(self) -> str:
+        return f'{CatDBSchema.NEW_CATEGORY_NAME} {self._new_cat_counter}'
+
     def get_group_of_category(self, cat: str) -> Optional[str]:
         cat_row = self._db[self._db[CatDBSchema.CAT_NAME] == cat]
-        if len(cat_row) > 0:
-            return cat_row[CatDBSchema.CAT_GROUP].iloc[0]
-        return None
+        return cat_row[CatDBSchema.CAT_GROUP].iloc[0] if len(cat_row) > 0 else None
 
     def get_group_names(self) -> List[str]:
         return self._db[CatDBSchema.CAT_GROUP].unique().tolist()

@@ -97,7 +97,7 @@ def _create_add_action_icons():
                 _create_action_icon('ic:outline-splitscreen',
                                     TransIDs.SPLIT_ICON, 'Split Transaction')
             ])
-        ])
+        ], className='hover-card-dropdown')
     ])
 
 
