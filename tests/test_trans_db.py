@@ -4,7 +4,11 @@ import pandas as pd
 
 from findash.transactions_db import TransactionsDBParquet
 
+"""
+1. use composite (custom) strategies for generating a test dataframe
+2. try autogenerate a test file
 
+"""
 def input_trans_df():
     return pd.DataFrame({'id': ['1', '2', '3'],
                          'date': ['2021-01-01', '2021-01-02', '2021-01-03'],
