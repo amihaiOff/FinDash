@@ -20,7 +20,7 @@ def setup_logger():
 
 
 logger = setup_logger()
-
+server = None
 
 def setup_trans_db(cat_db: CategoriesDB):
     """
@@ -115,7 +115,10 @@ def setup_app():
 
 
 def run_frontend():
+    global server
+
     app = setup_app()
+    server = app.server
     logger.info('Running app')
     app.run(port=8001, debug=True)
 
