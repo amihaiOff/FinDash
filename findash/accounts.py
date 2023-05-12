@@ -9,8 +9,8 @@ from typing import Dict
 import pandas as pd
 
 from transactions_db import TransDBSchema
-from utils import SETTINGS, MappingDict
-
+from utils import MappingDict
+from settings import SETTINGS
 
 ACCOUNTS = {}
 

@@ -5,7 +5,7 @@ import json
 
 import pandas as pd
 
-from utils import SETTINGS
+from settings import SETTINGS
 
 
 @dataclass

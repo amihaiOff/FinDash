@@ -8,9 +8,14 @@ from dash_iconify import DashIconify
 
 from transactions_db import TransactionsDBParquet, TransDBSchema
 from categories_db import CategoriesDB
-from utils import SETTINGS
+from settings import SETTINGS
 from accounts import ACCOUNTS
+import dash_auth
 
+
+VALID_USERNAME_PASSWORD_PAIRS = {
+    'hello': 'world'
+}
 
 def setup_logger():
     logging.config.fileConfig('logger.ini')
@@ -110,6 +115,11 @@ def setup_app():
                                                ],
                use_pages=True, suppress_callback_exceptions=True,
                )
+
+    auth = dash_auth.BasicAuth(
+        app,
+        VALID_USERNAME_PASSWORD_PAIRS
+    )
     setup_pages_container(app)
     return app
 

@@ -8,8 +8,9 @@ import logging
 import pandas as pd
 
 from categories_db import CategoriesDB
-from utils import SETTINGS, create_uuid, format_date_col_for_display, \
+from utils import create_uuid, format_date_col_for_display, \
     check_null, get_current_year_and_month, Change, ChangeType, START_DATE_DEFAULT
+from settings import SETTINGS
 from change_list import ChangeList
 
 """

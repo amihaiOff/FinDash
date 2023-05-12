@@ -1,0 +1,18 @@
+paths_from_findash_root:
+    trans_db_path: trans_db
+    cat_db_path: cat_db/cat_db.pq
+    payee2cat_db_path: cat_db/payee2cat_db.json
+    cat2payee_db_path: cat_db/cat2payee_db.json
+    auto_cat_db_path: auto_cat_db.pq
+    accounts: accounts.yaml
+
+
+local:
+  path_to_vaults: /Users/amihaio/Documents/personal/FinDash/dbs/dev
+
+s3:
+  bucket_name: stag-app-data-amihaio
+  app_name: findash
+
+#user:
+#  vault_name: dev
