@@ -1,4 +1,4 @@
-paths_from_findash_root:
+path_from_root:
     trans_db_path: trans_db
     cat_db_path: cat_db/cat_db.pq
     payee2cat_db_path: cat_db/payee2cat_db.json
@@ -8,7 +8,7 @@ paths_from_findash_root:
 
 
 local:
-  path_to_vaults: /Users/amihaio/Documents/personal/FinDash/dbs/dev
+  path_to_data: /Users/amihaio/Documents/personal/FinDash/dbs/dev
 
 s3:
   bucket_name: stag-app-data-amihaio

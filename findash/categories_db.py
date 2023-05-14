@@ -68,10 +68,12 @@ class CategoriesDB:
 
     def add_category(self,
                      category_group: str) -> None:
+        new_row =self._create_new_category_row(category_group)
         self._db = self._db.append(
-            self._create_new_category_row(category_group),
+            new_row,
             ignore_index=True)
         self._save_cat_db(SETTINGS.cat_db_path)
+        return new_row[CatDBSchema.CAT_NAME]
 
     def update_category_name(self, old_name: str, new_name: str) -> None:
         if new_name in self.get_categories():

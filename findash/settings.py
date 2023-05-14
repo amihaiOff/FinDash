@@ -2,49 +2,53 @@ from typing import Dict, Any
 
 import yaml
 
-from utils import SK
+
+class SK:
+    PATH_FROM_ROOT = 'path_from_root'
+    PATH_TO_DATA = 'path_to_data'
+    TRANS_DB_PATH = 'trans_db_path'
+    CAT_DB_PATH = 'cat_db_path'
+    PAYEE2CAT_DB_PATH = 'payee2cat_db_path'
+    CAT2PAYEE_DB_PATH = 'cat2payee_db_path'
+    AUTO_CAT_DB_PATH = 'auto_cat_db_path'
+    ACCOUNTS = 'accounts'
 
 
 class Settings:
-    def __init__(self):
+    def __init__(self, env='local'):
         self._settings = self.load_settings()
-        self._vault_name = self._settings[SK.USER][SK.VAULT_NAME]
+        # todo make this work with remote deployment
+        self._path_to_data = self._settings[env][SK.PATH_TO_DATA]
 
     def load_settings(self) -> Dict[str, Any]:
-        return yaml.safe_load(open('settings.yaml'))
+        return yaml.safe_load(open('../settings.yaml'))
 
     def _add_path_prefix(self, db_asset_path: str):
-        path_to_vault = self._settings[SK.DB][SK.PATH_TO_VAULTS]
-        path_prefix = f'{path_to_vault}/{self._vault_name}'
-        return f'{path_prefix}/{db_asset_path}'
-
-    @property
-    def vault_name(self) -> str:
-        return self._vault_name
+        return f'{self._path_to_data}/{db_asset_path}'
 
     @property
     def trans_db_path(self) -> str:
-        return self._add_path_prefix(self._settings[SK.DB][SK.TRANS_DB_PATH])
+        return self._add_path_prefix(self._settings[SK.PATH_FROM_ROOT][SK.TRANS_DB_PATH])
 
     @property
     def cat_db_path(self):
-        return self._add_path_prefix(self._settings[SK.DB][SK.CAT_DB_PATH])
+        return self._add_path_prefix(self._settings[SK.PATH_FROM_ROOT][SK.CAT_DB_PATH])
 
     @property
     def payee2cat_db_path(self) -> str:
-        return self._add_path_prefix(self._settings[SK.DB][SK.PAYEE2CAT_DB_PATH])
+        return self._add_path_prefix(self._settings[SK.PATH_FROM_ROOT][SK.PAYEE2CAT_DB_PATH])
 
     @property
     def cat2payee_db_path(self):
-        return self._add_path_prefix(self._settings[SK.DB][SK.CAT2PAYEE_DB_PATH])
+        return self._add_path_prefix(self._settings[SK.PATH_FROM_ROOT][SK.CAT2PAYEE_DB_PATH])
 
     @property
     def auto_cat_db_path(self):
-        return self._add_path_prefix(self._settings[SK.DB][SK.AUTO_CAT_DB_PATH])
+        return self._add_path_prefix(self._settings[SK.PATH_FROM_ROOT][SK.AUTO_CAT_DB_PATH])
 
     @property
     def accounts_path(self):
-        return self._add_path_prefix(self._settings[SK.DB][SK.ACCOUNTS])
+        return self._add_path_prefix(self._settings[SK.PATH_FROM_ROOT][SK.ACCOUNTS])
 
 
 SETTINGS = Settings()

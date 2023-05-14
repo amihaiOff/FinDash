@@ -14,18 +14,6 @@ START_DATE_DEFAULT = pd.to_datetime('1900-01-01')
 END_DATE_DEFAULT = pd.to_datetime('2100-01-01')
 
 
-class SK:
-    DB = 'db'
-    USER = 'user'
-    VAULT_NAME = 'vault_name'
-    PATH_TO_VAULTS = 'path_to_vaults'
-    TRANS_DB_PATH = 'trans_db_path'
-    CAT_DB_PATH = 'cat_db_path'
-    PAYEE2CAT_DB_PATH = 'payee2cat_db_path'
-    CAT2PAYEE_DB_PATH = 'cat2payee_db_path'
-    AUTO_CAT_DB_PATH = 'auto_cat_db_path'
-    ACCOUNTS = 'accounts'
-
 
 class ChangeType(Enum):
     CHANGE_DATA = 'change_data'

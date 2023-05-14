@@ -18,7 +18,7 @@ VALID_USERNAME_PASSWORD_PAIRS = {
 }
 
 def setup_logger():
-    logging.config.fileConfig('logger.ini')
+    logging.config.fileConfig('../logger.ini')
     logger = logging.getLogger('Logger')
     logger.info('Logger initialized')
     return logger
