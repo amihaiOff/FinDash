@@ -8,9 +8,9 @@ import logging
 import pandas as pd
 
 from categories_db import CategoriesDB
+from file_io import FileIO
 from utils import create_uuid, format_date_col_for_display, \
     check_null, get_current_year_and_month, Change, ChangeType, START_DATE_DEFAULT
-from settings import SETTINGS
 from change_list import ChangeList
 
 """
@@ -127,10 +127,13 @@ class TransDBSchema:
 
 class TransactionsDBParquet:
     def __init__(self,
+                 file_io: FileIO,
                  cat_db: CategoriesDB,
                  accounts: dict,  # todo - how to solve the problem that I cannot import accounts type for typing?
                  db: pd.DataFrame = pd.DataFrame()):
 
+        self._file_io = file_io
+        self._path_from_data_root = 'trans_db'
         self._db: pd.DataFrame = db
         self._full_db: pd.DataFrame = db.copy()
         self._filtered_db: pd.DataFrame = db.copy()
@@ -141,15 +144,20 @@ class TransactionsDBParquet:
         self._applied_filters = {}
 
     def __getitem__(self, item):
-        return TransactionsDBParquet(self._cat_db, self._accounts, self._db.__getitem__(item))
+        return TransactionsDBParquet(self._file_io,
+                                     self._cat_db,
+                                     self._accounts,
+                                     self._db.__getitem__(item))
 
     def __getattr__(self, item):
         return self._db.__getattr__(item)
 
     def __setitem__(self, name, value):
-        return TransactionsDBParquet(self._cat_db,
-                                     self._accounts,
-                                     self._db.__setitem__(name, value))
+        return TransactionsDBParquet(
+            self._file_io,
+            self._cat_db,
+            self._accounts,
+            self._db.__setitem__(name, value))
 
     def __eq__(self, other):
         return self._db.__eq__(other)
@@ -172,20 +180,17 @@ class TransactionsDBParquet:
     def __len__(self):
         return len(self._db)
 
-    def connect(self, db_path: str):
+    def connect(self):
         """
         load parquet files of transactions
-        :param db_path: path to db root folder
         :return:
         """
-        root_path = Path(db_path)
-
         pq_files = []
-        for item in root_path.glob('*'):
-            if item.is_dir():
-                pq_files.extend(pd.read_parquet(file) for file in item.iterdir())
-            elif item.name.endswith('pq'):
-                pq_files.append(pd.read_parquet(item))
+        for year_dir in self._file_io.get_dirs_in_dir(
+                self._path_from_data_root, full_paths=True):
+            pq_files.extend(self._file_io.load_file(file) for file in
+                            self._file_io.get_files_in_dir(year_dir,
+                                                           full_paths=True))
 
         if not len(pq_files):
             self._init_empty_db()
@@ -201,7 +206,7 @@ class TransactionsDBParquet:
 
         # set monthly_trans
         self.set_specific_month(*get_current_year_and_month())
-        logger.info(f'loaded trans db from {db_path}')
+        logger.info('loaded trans db')
 
     def _set_cat_col_categories(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -209,9 +214,12 @@ class TransactionsDBParquet:
         to cat_val, in df
         :return: df with set categoricals
         """
-        df[TransDBSchema.CAT] = df[TransDBSchema.CAT].cat.set_categories(self._cat_db.get_categories())
-        df[TransDBSchema.CAT_GROUP] = df[TransDBSchema.CAT_GROUP].cat.set_categories(self._cat_db.get_group_names())
-        df[TransDBSchema.ACCOUNT] = df[TransDBSchema.ACCOUNT].cat.set_categories(list(self._accounts.keys()))
+        df[TransDBSchema.CAT] = df[TransDBSchema.CAT].cat.set_categories(
+            self._cat_db.get_categories())
+        df[TransDBSchema.CAT_GROUP] = df[TransDBSchema.CAT_GROUP].\
+            cat.set_categories(self._cat_db.get_group_names())
+        df[TransDBSchema.ACCOUNT] = df[TransDBSchema.ACCOUNT].\
+            cat.set_categories(list(self._accounts.keys()))
 
         return df
 
@@ -229,18 +237,12 @@ class TransactionsDBParquet:
         :param months_to_save: list of tuples of form (year, month)
         :return:
         """
-        # if len(months_to_save) == 0:
-        #     self._save_no_date_db()
-
-        trans_db_path = Path(SETTINGS.trans_db_path)
         for year, month in months_to_save:
-            year_dir = trans_db_path / str(year)
-            if not year_dir.exists():
-                year_dir.mkdir()
-
+            year_dir = Path(f'{self._path_from_data_root}/{year}')
             cond1 = self._db[TransDBSchema.DATE].dt.year == int(year)
             cond2 = self._db[TransDBSchema.DATE].dt.month == int(month)
-            self._db[cond1 & cond2].to_parquet(year_dir / f'{month}.pq')
+            self._file_io.save_file(str(year_dir / f'{month}.pq'),
+                                    self._db[cond1 & cond2])
             logger.info(f'saved transactions db to {year_dir / f"{month}.pq"}')
 
     def save_db_from_uuids(self, uuid_list: List[str]) -> None:
@@ -540,10 +542,12 @@ class TransactionsDBParquet:
         :param group: group to get data from
         :return: dataframe of data
         """
-        return TransactionsDBParquet(self._cat_db,
-                                     self._accounts,
-                                     self._db[self._db[TransDBSchema.CAT_GROUP]
-                                              == group])
+        return TransactionsDBParquet(
+            self._file_io,
+            self._cat_db,
+            self._accounts,
+            self._db[self._db[TransDBSchema.CAT_GROUP]
+                     == group])
 
     def get_data_by_cat(self, cat: str) -> pd.DataFrame:
         """
@@ -639,7 +643,8 @@ class TransactionsDBParquet:
     def specific_month(self):
         year, month = self._specific_month_date.split('-')
         trans = self.get_trans_by_month(year, month)
-        return TransactionsDBParquet(self._cat_db,
+        return TransactionsDBParquet(self._file_io,
+                                     self._cat_db,
                                      self._accounts,
                                      trans)
 

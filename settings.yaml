@@ -1,4 +1,4 @@
-path_from_root:
+path_from_root: # move to code
     trans_db_path: trans_db
     cat_db_path: cat_db/cat_db.pq
     payee2cat_db_path: cat_db/payee2cat_db.json
@@ -7,6 +7,7 @@ path_from_root:
     accounts: accounts.yaml
 
 
+# use .env file
 local:
   path_to_data: /Users/amihaio/Documents/personal/FinDash/dbs/dev
 

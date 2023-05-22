@@ -1,10 +1,12 @@
 import contextlib
+import os
 from abc import abstractmethod, ABC
 
 import numpy as np
 import yaml
 from enum import Enum
 from typing import Dict
+from dotenv import load_dotenv
 
 import pandas as pd
 
@@ -13,6 +15,7 @@ from utils import MappingDict
 from settings import SETTINGS
 
 ACCOUNTS = {}
+load_dotenv('../.env.stag')
 
 
 class Institution(Enum):
@@ -209,7 +212,8 @@ def init_accounts():
     in trans table dropdown.
     :return:
     """
-    accounts_yaml = yaml.safe_load(open(SETTINGS.accounts_path))
+    accounts_db_path = f'{os.environ.get("DATA_PATH")}/accounts.yaml'
+    accounts_yaml = yaml.safe_load(open(accounts_db_path))
     for name, settings in accounts_yaml.items():
         cls = accounts_register[settings['institution']]
         acc = cls(name)

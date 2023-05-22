@@ -5,7 +5,7 @@ import json
 
 import pandas as pd
 
-from settings import SETTINGS
+from file_io import FileIO, Ftype
 
 
 @dataclass
@@ -18,7 +18,11 @@ class CatDBSchema:
 
 
 class CategoriesDB:
-    def __init__(self):
+    def __init__(self, file_io: FileIO):
+        self._file_io = file_io
+        self._db_path = 'cat_db/cat_db.pq'
+        self._payee2cat_db_path = 'cat_db/payee2cat.json'
+        self._cat2payee_db_path = 'cat_db/cat2payee.json'
         self._db = pd.DataFrame()
         self._payee2cat = {}
         self._cat2payee = {}
@@ -29,33 +33,40 @@ class CategoriesDB:
 
     def _load_dbs(self):
         """
-        load the categoeies db and the payee2cat and cat2payee dbs
+        load the categories db and the payee2cat and cat2payee dbs
         :return:
         """
-        self._db = pd.read_parquet(SETTINGS.cat_db_path)
+        self._db = self._file_io.load_file(self._db_path, Ftype.PARQUET)
 
-        if Path(SETTINGS.payee2cat_db_path).exists():
-            with open(SETTINGS.payee2cat_db_path, 'r') as f:
-                self._payee2cat = json.load(f)
+        if Path(self._payee2cat_db_path).exists():
+            self._payee2cat = self._file_io.load_file(self._payee2cat_db_path,
+                                                      Ftype.JSON)
         else:
             self._payee2cat = {}
 
-        if Path(SETTINGS.cat2payee_db_path).exists():
-            with open(SETTINGS.cat2payee_db_path, 'r') as f:
-                self._cat2payee = json.load(f)
+        if Path(self._cat2payee_db_path).exists():
+            self._cat2payee = self._file_io.load_file(self._cat2payee_db_path,
+                                                      Ftype.JSON)
         else:
             self._cat2payee = {}
 
     def _save_payee2cat(self):
-        with open(SETTINGS.payee2cat_db_path, 'w') as f:
-            json.dump(self._payee2cat, f, indent=4, ensure_ascii=False)
+        self._file_io.save_file(
+            self._payee2cat_db_path,
+            self._payee2cat,
+            Ftype.JSON)
 
     def _save_cat2payee(self):
-        with open(SETTINGS.cat2payee_db_path, 'w') as f:
-            json.dump(self._cat2payee, f, indent=4, ensure_ascii=False)
+        self._file_io.save_file(
+            self._cat2payee_db_path,
+            self._cat2payee,
+            Ftype.JSON)
 
-    def _save_cat_db(self, db_path):
-        self._db.to_parquet(db_path)
+    def _save_cat_db(self):
+        self._file_io.save_file(
+            self._db_path,
+            self._db,
+            Ftype.PARQUET)
 
     def _create_new_category_row(self, cat_group: str):
         self._new_cat_counter += 1
@@ -72,7 +83,7 @@ class CategoriesDB:
         self._db = self._db.append(
             new_row,
             ignore_index=True)
-        self._save_cat_db(SETTINGS.cat_db_path)
+        self._save_cat_db()
         return new_row[CatDBSchema.CAT_NAME]
 
     def update_category_name(self, old_name: str, new_name: str) -> None:
@@ -82,7 +93,7 @@ class CategoriesDB:
 
         self._db.loc[self._db[CatDBSchema.CAT_NAME] == old_name,
                      CatDBSchema.CAT_NAME] = new_name
-        self._save_cat_db(SETTINGS.cat_db_path)
+        self._save_cat_db()
 
     def _update_new_category_counter(self):
         new_cat_only = self._db[self._db[CatDBSchema.CAT_NAME].str.startswith(
@@ -98,7 +109,7 @@ class CategoriesDB:
         self._db = self._db[
             self._db[CatDBSchema.CAT_NAME] != category_name]
 
-        self._save_cat_db(SETTINGS.cat_db_path)
+        self._save_cat_db()
 
         if category_name.startswith(CatDBSchema.NEW_CATEGORY_NAME):
             self._update_new_category_counter()
@@ -107,7 +118,7 @@ class CategoriesDB:
                                budget: float) -> None:
         row_ind = self._db[CatDBSchema.CAT_NAME] == category_name
         self._db.loc[row_ind, CatDBSchema.BUDGET] = budget
-        self._save_cat_db(SETTINGS.cat_db_path)
+        self._save_cat_db()
 
     def update_payee_to_cat_mapping(self, payee: str, cat: str):
         original_cat = self._payee2cat.get(payee)

@@ -1,4 +1,6 @@
 import logging.config
+import os
+from dotenv import load_dotenv
 
 import dash_bootstrap_components as dbc
 from dash import Dash, html
@@ -8,14 +10,15 @@ from dash_iconify import DashIconify
 
 from transactions_db import TransactionsDBParquet, TransDBSchema
 from categories_db import CategoriesDB
-from settings import SETTINGS
 from accounts import ACCOUNTS
 import dash_auth
 
+from file_io import Bucket, LocalIO
 
 VALID_USERNAME_PASSWORD_PAIRS = {
     'hello': 'world'
 }
+
 
 def setup_logger():
     logging.config.fileConfig('../logger.ini')
@@ -27,6 +30,10 @@ def setup_logger():
 logger = setup_logger()
 server = None
 
+ENV_NAME = 'prod'
+load_dotenv(f'../.env.{ENV_NAME}')
+
+
 def setup_trans_db(cat_db: CategoriesDB):
     """
 
@@ -36,7 +43,7 @@ def setup_trans_db(cat_db: CategoriesDB):
     :param cat_db:
     :return:
     """
-    trans_db = TransactionsDBParquet(cat_db, ACCOUNTS)
+    trans_db = TransactionsDBParquet(file_io, cat_db, ACCOUNTS)
 
     # if load_type == 'dummy':
     #     trans_gen = TransGenerator(60)
@@ -49,7 +56,7 @@ def setup_trans_db(cat_db: CategoriesDB):
     #         trans_db.insert_data(trans)
     #
     # elif load_type == 'parquet':
-    trans_db.connect(SETTINGS.trans_db_path)
+    trans_db.connect()
 
     return trans_db
 
@@ -133,8 +140,19 @@ def run_frontend():
     app.run(port=8001, debug=True)
 
 
+def _create_file_io():
+    if ENV_NAME == 'stag':
+        return LocalIO(os.environ.get("DATA_PATH"))
+    elif ENV_NAME == 'prod':
+        return Bucket(os.environ.get("BUCKET_NAME"),
+                      os.environ.get("APP_NAME"))
+
+
+file_io = _create_file_io()
+
+
 # _validate_accounts(ACCOUNTS)
-CAT_DB = CategoriesDB()
+CAT_DB = CategoriesDB(file_io)
 logger.info('Created cat db')
 
 
