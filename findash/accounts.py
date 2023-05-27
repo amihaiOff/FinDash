@@ -10,12 +10,12 @@ from dotenv import load_dotenv
 
 import pandas as pd
 
+from file_io import FileIO
 from transactions_db import TransDBSchema
 from utils import MappingDict
 from settings import SETTINGS
 
 ACCOUNTS = {}
-load_dotenv('../.env.stag')
 
 
 class Institution(Enum):
@@ -42,7 +42,7 @@ class ColMapping:
         for option in TransDBSchema.get_mandatory_col_sets():
             col_inter = set(self._dict_col_mapping.values()).intersection(set(option))
             col_diff = col_inter.symmetric_difference(set(option))
-            if len(col_diff) == 0:
+            if not col_diff:
                 return
 
         raise ValueError('Missing mandatory cols in transaction file')
@@ -205,15 +205,15 @@ def _apply_col_mapping(trans_file: pd.DataFrame,
     return trans_file
 
 
-def init_accounts():
+def init_accounts(file_io: FileIO) -> None:
     """
     create account classes of all available accounts as defined in
     accounts.yaml - this is to make it possible to choose from all accounts
     in trans table dropdown.
     :return:
     """
-    accounts_db_path = f'{os.environ.get("DATA_PATH")}/accounts.yaml'
-    accounts_yaml = yaml.safe_load(open(accounts_db_path))
+    accounts_db_path = 'accounts.yaml'
+    accounts_yaml = file_io.read_yaml(accounts_db_path)
     for name, settings in accounts_yaml.items():
         cls = accounts_register[settings['institution']]
         acc = cls(name)
@@ -238,5 +238,3 @@ accounts_register = {
         'cal': CAL,
         'oz': OZ,
     }
-
-init_accounts()

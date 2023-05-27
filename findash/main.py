@@ -10,7 +10,7 @@ from dash_iconify import DashIconify
 
 from transactions_db import TransactionsDBParquet, TransDBSchema
 from categories_db import CategoriesDB
-from accounts import ACCOUNTS
+from accounts import ACCOUNTS, init_accounts
 import dash_auth
 
 from file_io import Bucket, LocalIO
@@ -149,7 +149,7 @@ def _create_file_io():
 
 
 file_io = _create_file_io()
-
+init_accounts(file_io)
 
 # _validate_accounts(ACCOUNTS)
 CAT_DB = CategoriesDB(file_io)

@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 
 import boto3
 import pandas as pd
+import yaml
 from botocore.exceptions import ClientError
 
 
@@ -81,10 +82,19 @@ class FileIO(ABC):
     def _save_parquet(self, data: Any, save_path: str) -> None:
         pass
 
+    @abstractmethod
+    def read_yaml(self, load_path: str) -> Any:
+        pass
+
 
 class LocalIO(FileIO):
     def __init__(self, data_root: str):
         super().__init__(data_root)
+
+    def read_yaml(self, load_path: str) -> Any:
+        load_path = self._add_root_prefix(load_path)
+        with open(load_path, 'r') as f:
+            return yaml.safe_load(f)
 
     def _read_json(self, load_path: str) -> Union[List, Dict[str, Any]]:
         with open(load_path) as f:
@@ -186,6 +196,10 @@ class Bucket(FileIO):
     def read_pickle(self, path: str) -> Any:
         obj = self._s3.get_object(Bucket=self._bucket_name, Key=path)
         return pickle.loads(Bucket._read_bytes_from_s3_obj(obj))
+
+    def read_yaml(self, load_path: str) -> Any:
+        load_path = self._add_root_prefix(load_path)
+        return yaml.safe_load(self.read_str(load_path))
 
     def write_str(self, str_data: str, path: str) -> None:
         data_fileobj = BytesIO(str_data.encode())
