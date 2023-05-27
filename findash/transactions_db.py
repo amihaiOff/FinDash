@@ -193,6 +193,7 @@ class TransactionsDBParquet:
                                                            full_paths=True))
 
         if not len(pq_files):
+            logger.info('init empty trans db')
             self._init_empty_db()
             return
 

@@ -17,36 +17,30 @@ class Ftype:
     PARQUET = 'parquet'
 
 
-def _add_root_prefix(method: callable) -> callable:
-    """
-    Decorator to add the data root prefix to the path.
-    To be usef with file_io type classes.
-    :param method:
-    :return:
-    """
-    def wrapper(self, *args, **kwargs):
-        path = f'{self._data_root}/{args[0]}'
-        args = (path, *args[1:])
-        return method(self, *args, **kwargs)
-
-    return wrapper
-
-
 class FileIO(ABC):
     def __init__(self, data_root: str):
         self._data_root = data_root
 
-    @_add_root_prefix
+    def _add_root_prefix(self, path):
+        return (
+            path
+            if path.startswith(self._data_root)
+            else f'{self._data_root}/{path}'
+        )
+
     def save_file(self, save_path: str, data: Any, ftype: Optional[Ftype] = None):
+        save_path = self._add_root_prefix(save_path)
         if ftype == Ftype.JSON or save_path.endswith('.json'):
             self._save_json(data, save_path)
-        elif ftype == Ftype.PARQUET or save_path.endswith('.parquet'):
+        elif ftype == Ftype.PARQUET or \
+                save_path.endswith('.parquet') or \
+                save_path.endswith('.pq'):
             self._save_parquet(data, save_path)
         else:
             raise ValueError(f'Unknown file type: {ftype} or file extension: {save_path}')
 
-    @_add_root_prefix
     def load_file(self, load_path: str, ftype: Optional[Ftype] = None) -> Any:
+        load_path = self._add_root_prefix(load_path)
         if ftype == Ftype.JSON or load_path.endswith('.json'):
             return self._read_json(load_path)
         elif ftype == Ftype.PARQUET or \
@@ -116,17 +110,16 @@ class LocalIO(FileIO):
         else:
             raise ValueError(f'Unknown data type for parquet: {type(data)}')
 
-    @_add_root_prefix
     def get_dirs_in_dir(self,
                         dir_path: str,
                         full_paths: bool = False) -> Iterable[str]:
+        dir_path = self._add_root_prefix(dir_path)
         path = Path(dir_path)
         if full_paths:
             return [str(f)[len(self._data_root)+1:] for f in path.iterdir() if f.is_dir()]
         else:
             return [f.name for f in path.iterdir() if f.is_dir()]
 
-    @_add_root_prefix
     def get_files_in_dir(self,
                          dir_path: str,
                          including_subdirs=False,
@@ -139,6 +132,7 @@ class LocalIO(FileIO):
         :param full_paths:
         :return:
         """
+        dir_path = self._add_root_prefix(dir_path)
         path = Path(dir_path)
         files = path.glob('*')
         if not including_subdirs:
@@ -238,13 +232,14 @@ class Bucket(FileIO):
             Delete={"Objects": [{"Key": path} for path in paths]},
         )
 
-    @_add_root_prefix
     def get_files_in_dir(
         self,
         dir_path: str,
         including_subdirs=False,
         full_paths=False,
     ) -> List[str]:
+
+        dir_path = self._add_root_prefix(dir_path)
         bucket = self._s3_res.Bucket(self._bucket_name)
         if not dir_path.endswith("/"):
             dir_path += "/"
@@ -261,12 +256,13 @@ class Bucket(FileIO):
             files = [f.replace(dir_path, "") for f in files]
         return files
 
-    @_add_root_prefix
     def get_dirs_in_dir(
         self,
         dir_path: str,
         full_paths=False,
     ) -> Iterable[str]:
+
+        dir_path = self._add_root_prefix(dir_path)
         if dir_path != "" and not dir_path.endswith("/"):
             dir_path += "/"
         objs = self._s3.list_objects(
