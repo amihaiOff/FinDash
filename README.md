@@ -50,6 +50,22 @@ find causes and change towards the path we want to take.
 
 ## How to run
 
+clone this repo
+```bash
+git clone https://github.com/amihaiOff/FinDash.git
+```
+[install poetry](https://python-poetry.org/docs/#installation) if you don't already have it installed
+
+then run 
+```bash
+
+cd FinDash
+poetry install
+cd findash
+poetry run python main.py
+
+```
+
 
 ## Structure
 The current implementation uses Plotly Dash as a front end and parquet 
