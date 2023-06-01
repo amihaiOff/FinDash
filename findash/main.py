@@ -132,12 +132,12 @@ def setup_app():
 
 
 def run_frontend():
+    print('Running frontend')
     global server
 
     app = setup_app()
     server = app.server
-    logger.info('Running app')
-    app.run(port=8001, debug=True)
+    return app
 
 
 def _create_file_io():
@@ -146,6 +146,7 @@ def _create_file_io():
     elif ENV_NAME == 'prod':
         return Bucket(os.environ.get("BUCKET_NAME"),
                       os.environ.get("APP_NAME"))
+
 
 
 file_io = _create_file_io()
@@ -158,7 +159,9 @@ logger.info('Created cat db')
 
 TRANS_DB = setup_trans_db(CAT_DB)
 logger.info('Created trans db')
+app = run_frontend()
 
 
 if __name__ == "__main__":
-    run_frontend()
+    logger.info('Running app')
+    app.run(port=8001, debug=True)
