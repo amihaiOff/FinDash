@@ -30,7 +30,7 @@ def setup_logger():
 logger = setup_logger()
 server = None
 
-ENV_NAME = 'prod'
+ENV_NAME = 'stag'
 load_dotenv(f'../.env.{ENV_NAME}')
 
 

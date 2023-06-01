@@ -1,10 +1,16 @@
+import os
+
 from hypothesis.stateful import Bundle, RuleBasedStateMachine, \
     rule, precondition, consumes
 import hypothesis.strategies as st
 from hypothesis import example, settings, Verbosity
 import pytest
+from tempfile import TemporaryDirectory
 
 from findash.categories_db import CategoriesDB
+from findash.file_io import LocalIO
+from tests.create_dummy_data.dummy_cat_and_accounts_db import \
+    create_dummy_cat_db
 
 settings.register_profile("stag", max_examples=100,
                           verbosity=Verbosity.verbose)
@@ -14,7 +20,15 @@ settings.load_profile('stag')
 class TestCatDB(RuleBasedStateMachine):
     def __init__(self):
         super().__init__()
-        self.cat_db = CategoriesDB()
+        self.cat_db = self._setup_cat_db()
+
+    @staticmethod
+    def _setup_cat_db():
+        with TemporaryDirectory() as temp_dir:
+            os.mkdir(f'{temp_dir}/cat_db')
+            dummy_cat_db = create_dummy_cat_db()
+            dummy_cat_db.to_parquet(f'{temp_dir}/cat_db/cat_db.pq')
+            return CategoriesDB(LocalIO(temp_dir))
 
     categories_bundle = Bundle("categories")
 
