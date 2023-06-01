@@ -28,7 +28,7 @@ def setup_logger():
 
 
 logger = setup_logger()
-server = None
+# server = None
 
 ENV_NAME = 'stag'
 load_dotenv(f'../.env.{ENV_NAME}')
@@ -131,15 +131,6 @@ def setup_app():
     return app
 
 
-def run_frontend():
-    print('Running frontend')
-    global server
-
-    app = setup_app()
-    server = app.server
-    return app
-
-
 def _create_file_io():
     if ENV_NAME == 'stag':
         return LocalIO(os.environ.get("DATA_PATH"))
@@ -159,9 +150,9 @@ logger.info('Created cat db')
 
 TRANS_DB = setup_trans_db(CAT_DB)
 logger.info('Created trans db')
-app = run_frontend()
 
+app = setup_app()
+server = app.server
 
-if __name__ == "__main__":
-    logger.info('Running app')
-    app.run(port=8001, debug=True)
+logger.info('Running app')
+app.run(port=8001, debug=True)
