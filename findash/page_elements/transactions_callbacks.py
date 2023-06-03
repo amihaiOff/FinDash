@@ -280,9 +280,9 @@ def _get_removed_row_id(df: pd.DataFrame, df_previous: pd.DataFrame):
                State(TransIDs.FILE_UPLOADER, 'filename'),
                State(TransIDs.FILE_UPLOADER_DROPDOWN, 'value'),
                config_prevent_initial_callbacks=True)
-def _upload_file_callback(list_of_contents: List[Any],
-                          list_of_names: List[str],
-                          dd_val: str):
+def _upload_file(list_of_contents: List[Any],
+                 list_of_names: List[str],
+                 dd_val: str):
     if dd_val is None:
         notif = create_error_notif('Please select an account first')
         return (dash.no_update,)*5 + (notif,)
@@ -302,11 +302,13 @@ def _upload_file_callback(list_of_contents: List[Any],
         open_upload_summary = True
         open_upload_modal = False
         uploader_contents = None  # reset it to be able to upload the same file again
+        notif_children = []
         return _create_upload_summary_label(insert_summary), \
             open_upload_summary, \
             open_upload_modal, \
             TRANS_DB.get_records(), \
-            uploader_contents
+            uploader_contents, \
+            notif_children
 
 
 def _create_upload_summary_label(summary: dict):
@@ -321,5 +323,5 @@ def _create_upload_summary_label(summary: dict):
     Input(TransIDs.UPLOAD_FILE_ICON, 'n_clicks'),
     config_prevent_initial_callbacks=True
 )
-def _upload_file_modal_callback(_: int):
+def _upload_file_open_modal(_: int):
     return True

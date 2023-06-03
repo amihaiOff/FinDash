@@ -229,7 +229,8 @@ class TransactionsDBParquet:
         cols_with_def_value = TransDBSchema.get_non_mandatory_cols()
         cols_with_def_value.update({TransDBSchema.DATE: pd.to_datetime(START_DATE_DEFAULT),
                                     TransDBSchema.PAYEE: 'null',
-                                    TransDBSchema.AMOUNT: 0.0})
+                                    TransDBSchema.AMOUNT: 0.0,
+                                    TransDBSchema.ID: 0})
         self._db = pd.DataFrame(cols_with_def_value, index=[0])
 
     def save_db(self, months_to_save: List[Tuple[str, str]]) -> None:
@@ -443,7 +444,6 @@ class TransactionsDBParquet:
         self.save_db_from_uuids(uuid_list)
 
     def set_specific_month(self, year: str, month: str):
-        print(f'setting specific month to {year}-{month}')
         self._specific_month_date = f'{year}-{month}'
 
     def _get_months_from_uuid(self, uuid_lst: List[str]) -> List[

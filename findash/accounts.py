@@ -13,7 +13,6 @@ import pandas as pd
 from file_io import FileIO
 from transactions_db import TransDBSchema
 from utils import MappingDict
-from settings import SETTINGS
 
 ACCOUNTS = {}
 
@@ -143,18 +142,17 @@ class CAL(Account):
 
     def _get_col_mapping(self) -> ColMapping:
         col_mapping = {
-            "תאריך העסקה": TransDBSchema.DATE,
-            "סכום החיוב": TransDBSchema.AMOUNT,
-            "שם בית העסק": TransDBSchema.PAYEE,
-            "פירוט נוסף": TransDBSchema.MEMO,
+            "תאריך עסקה": TransDBSchema.DATE,
+            "סכום חיוב": TransDBSchema.AMOUNT,
+            "שם בית עסק": TransDBSchema.PAYEE,
+            "הערות": TransDBSchema.MEMO,
         }
 
         return ColMapping(col_mapping)
 
     def process_trans_file(self, trans_file: pd.DataFrame):
         trans_file.columns = trans_file.iloc[1, :]  # set columns names
-        trans_file = trans_file.drop(trans_file.index[:2])  # remove the first 2 rows which are headers
-        trans_file = trans_file.drop(trans_file.index[-1])  # remove the last row which is a summary
+        trans_file = trans_file.drop(trans_file.index[:3])  # remove the first 2 rows which are headers
         trans_file = _apply_col_mapping(trans_file, self._get_col_mapping())
         return trans_file
 
@@ -163,7 +161,7 @@ class CAL(Account):
         return InflowSign.MINUS
 
     def get_datetime_format(self) -> str:
-        return "%d/%m/%y"
+        return "%d/%m/%Y"
 
 
 class OZ(Account):
@@ -218,19 +216,6 @@ def init_accounts(file_io: FileIO) -> None:
         cls = accounts_register[settings['institution']]
         acc = cls(name)
         ACCOUNTS[name] = acc
-
-
-def init_account_by_name(acc_key: str) -> Account:
-    """
-    given the account key as defined in yaml file, return the account object
-    with the given name in the yaml file
-    :param acc_key:
-    :return:
-    """
-    accounts_yaml = yaml.safe_load(open(SETTINGS.accounts_path))
-    account = accounts_yaml[acc_key]
-    cls = accounts_register[account['institution']]
-    return cls(acc_key)
 
 
 accounts_register = {

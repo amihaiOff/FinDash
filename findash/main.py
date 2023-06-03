@@ -28,9 +28,8 @@ def setup_logger():
 
 
 logger = setup_logger()
-# server = None
 
-ENV_NAME = 'stag'
+ENV_NAME = 'prod_local'
 load_dotenv(f'../.env.{ENV_NAME}')
 
 
@@ -123,20 +122,22 @@ def setup_app():
                use_pages=True, suppress_callback_exceptions=True,
                )
 
-    auth = dash_auth.BasicAuth(
-        app,
-        VALID_USERNAME_PASSWORD_PAIRS
-    )
+    # auth = dash_auth.BasicAuth(
+    #     app,
+    #     VALID_USERNAME_PASSWORD_PAIRS
+    # )
     setup_pages_container(app)
     return app
 
 
 def _create_file_io():
-    if ENV_NAME == 'stag':
+    if ENV_NAME in ['stag', 'prod_local']:
         return LocalIO(os.environ.get("DATA_PATH"))
     elif ENV_NAME == 'prod':
         return Bucket(os.environ.get("BUCKET_NAME"),
                       os.environ.get("APP_NAME"))
+    else:
+        raise ValueError(f'Invalid env name: {ENV_NAME} for file io creation')
 
 
 
