@@ -26,7 +26,7 @@ class FileIO(ABC):
         return (
             path
             if path.startswith(self._data_root)
-            else f'{self._data_root}/{path}'
+            else Path(self._data_root).joinpath(path)
         )
 
     def save_file(self, save_path: str, data: Any, ftype: Optional[Ftype] = None):
