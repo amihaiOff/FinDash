@@ -1,8 +1,6 @@
 # FinDash 
 (naming suggestions are welcome)
 
-<img align='right' width=600 src="assets/readme/monthly.png">
-
 ## Features
 * Create expense categories (e.g. bills, medical, rent, going out etc.) 
   with expense goals to define a budget.
@@ -15,6 +13,11 @@
 * [Coming soon] Automatic scraping from Israeli financial institutions 
   (using [Israeli-bank-scrappers](https://github.com/eshaham/israeli-bank-scrapers)
   
+<img align='left' width=450 src="assets/readme/monthly.png">
+<img align='left' width=450 src="assets/readme/breakdown.png">
+<br clear="left">
+<img align='right' width=450 src="assets/readme/transactions.png">
+<img align='right' width=450 src="assets/readme/categories.png">
 <br clear="right">
   
 ## How to run
@@ -32,7 +35,6 @@ poetry install
 cd findash
 poetry run python main.py
 ```
-
 
 ## Structure
 The current implementation uses Plotly Dash as a front end and parquet 
