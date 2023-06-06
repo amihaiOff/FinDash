@@ -1,6 +1,8 @@
 # FinDash 
 (naming suggestions are welcome)
 
+<img align='right' width=600 src="assets/readme/monthly.png">
+
 ## Features
 * Create expense categories (e.g. bills, medical, rent, going out etc.) 
   with expense goals to define a budget.
@@ -13,8 +15,7 @@
 * [Coming soon] Automatic scraping from Israeli financial institutions 
   (using [Israeli-bank-scrappers](https://github.com/eshaham/israeli-bank-scrapers)
   
-  <img align='right' width="958" alt="image" src="https://github.com/amihaiOff/FinDash/assets/readme/monthly.png">
-
+<br clear="right">
   
 ## How to run
 
