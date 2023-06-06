@@ -1,5 +1,8 @@
 import json
 import os
+from pathlib import Path
+import click
+
 from typing import Optional
 
 import pandas as pd
@@ -12,12 +15,12 @@ from tests.create_dummy_data.dummy_cat_and_accounts_db import \
 from tests.create_dummy_data.dummy_trans_db import create_dummy_db
 
 
-def _create_dirs(path: str) -> None:
-    if not os.path.exists(f'{path}/cat_db'):
-        os.makedirs(f'{path}/cat_db')
+def _create_dirs(base_path: str) -> None:
+    db_path = Path(f'{base_path}/cat_db')
+    trans_path = Path(f'{base_path}/trans_db')
 
-    if not os.path.exists(f'{path}/trans_db'):
-        os.makedirs(f'{path}/trans_db')
+    os.makedirs(db_path, exist_ok=True)
+    os.makedirs(trans_path, exist_ok=True)
 
 
 def create_all_dummy_data(
@@ -36,17 +39,24 @@ def create_all_dummy_data(
     accounts_dict: dict = create_accounts_dict()
 
     _create_dirs(save_path)
-    dummy_cat_db.to_parquet(f'{save_path}/cat_db/cat_db.pq')
-    json.dump(payee2cat, open(f'{save_path}/cat_db/payee2cat.json', 'w'),
+    dummy_cat_db.to_parquet(Path(f'{save_path}/cat_db/cat_db.pq'))
+    json.dump(payee2cat, open(Path(f'{save_path}/cat_db/payee2cat.json'), 'w'),
               indent=4)
-    json.dump(cat2payee, open(f'{save_path}/cat_db/cat2payee.json', 'w'),
+    json.dump(cat2payee, open(Path(f'{save_path}/cat_db/cat2payee.json'), 'w'),
               indent=4)
-    yaml.dump(accounts_dict, open(f'{save_path}/accounts.yaml', 'w'))
+    yaml.dump(accounts_dict, open(Path(f'{save_path}/accounts.yaml'), 'w'))
 
 
+
+@click.command()
+@click.option('--db_path',
+            help='Path to create the DB files')
+
+def main(db_path):
+    create_all_dummy_data(Path(db_path),
+                        start_date='2020-01-01',
+                        end_date='2020-03-31',
+                        num_records=10
+                        )
 if __name__ == '__main__':
-    create_all_dummy_data('/Users/amihaio/Documents/personal/FinDash/dbs/dev',
-                          start_date='2020-01-01',
-                          end_date='2020-03-31',
-                          num_records=10
-                          )
+    main()

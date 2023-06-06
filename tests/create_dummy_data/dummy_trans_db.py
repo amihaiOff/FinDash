@@ -1,4 +1,5 @@
 import os.path
+from pathlib import Path
 import uuid
 from typing import Optional, Dict
 
@@ -92,9 +93,9 @@ def save_dummy_db(db: Dict[str, pd.DataFrame],
     """
     for date, trans in db.items():
         year, month = date.split('-')
-        year_path = f'{path}/trans_db/{year}'
-        if not os.path.exists(year_path):
-            os.mkdir(year_path)
+        year_path = Path(f'{path}/trans_db/{year}')
+        
+        os.makedirs(year_path, exist_ok=True)
 
         trans.to_parquet(f'{year_path}/{month}.pq')
 
