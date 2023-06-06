@@ -23,10 +23,9 @@ class FileIO(ABC):
         self._data_root = data_root
 
     def _add_root_prefix(self, path):
+        path = path if path.startswith(self._data_root) else f'{self._data_root}/{path}'
         return (
-            path
-            if path.startswith(self._data_root)
-            else Path(self._data_root).joinpath(path)
+            str(Path(path))
         )
 
     def save_file(self, save_path: str, data: Any, ftype: Optional[Ftype] = None):

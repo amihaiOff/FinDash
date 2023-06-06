@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 from hypothesis.stateful import Bundle, RuleBasedStateMachine, \
     rule, precondition, consumes
@@ -25,9 +26,9 @@ class TestCatDB(RuleBasedStateMachine):
     @staticmethod
     def _setup_cat_db():
         with TemporaryDirectory() as temp_dir:
-            os.mkdir(f'{temp_dir}/cat_db')
+            os.makedirs(Path(f'{temp_dir}/cat_db'), exist_ok=True)
             dummy_cat_db = create_dummy_cat_db()
-            dummy_cat_db.to_parquet(f'{temp_dir}/cat_db/cat_db.pq')
+            dummy_cat_db.to_parquet(Path(f'{temp_dir}/cat_db/cat_db.pq'))
             return CategoriesDB(LocalIO(temp_dir))
 
     categories_bundle = Bundle("categories")

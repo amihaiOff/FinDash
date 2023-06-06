@@ -1,5 +1,6 @@
 import logging.config
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
 import dash_bootstrap_components as dbc
@@ -21,7 +22,7 @@ VALID_USERNAME_PASSWORD_PAIRS = {
 
 
 def setup_logger():
-    logging.config.fileConfig('../logger.ini')
+    logging.config.fileConfig(Path('../logger.ini'))
     logger = logging.getLogger('Logger')
     logger.info('Logger initialized')
     return logger
