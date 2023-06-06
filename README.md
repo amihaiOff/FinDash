@@ -13,7 +13,7 @@
 * [Coming soon] Automatic scraping from Israeli financial institutions 
   (using [Israeli-bank-scrappers](https://github.com/eshaham/israeli-bank-scrapers)
   
-  <img aling='right', width="958" alt="image" src="https://github.com/amihaiOff/FinDash/assets/57396603/0cc8848f-c525-47d7-aff9-48222d078f69">
+  <img aling='right', width="958" alt="image" src="https://github.com/amihaiOff/FinDash/assets/readme/monthly.png">
 
   
 ## How to run
