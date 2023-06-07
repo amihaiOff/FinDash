@@ -19,12 +19,14 @@ Features
    (using
    `Israeli-bank-scrappers <https://github.com/eshaham/israeli-bank-scrapers>`__)
 
-.. image:: asssets/screens_collage.png
+.. image:: assets/readme/screens_collage.png
     :align: center
 
 .. contents::
 
-How to run
+.. section-numbering::
+
+🏃🏻‍♂️ How to run
 ----------
 
 clone this repo
@@ -59,14 +61,14 @@ format
 
 where ``institution_name`` is a class in the ``accounts.py`` file
 
-Database
+💿 Database
 --------
 
 Currently data is stored as parquets (loaded using pandas) and json
 files. In the future we might want to migrate to a proper SQL DB, but so
 far this is not needed.
 
-Contribution
+🎁 Contribution
 ------------
 
 Installing for development
@@ -78,7 +80,7 @@ Running tests
 Code style
 ~~~~~~~~~~
 
-Idea
+💡 Idea
 ----
 
 FinDash is an all-in-one personal financial dashboard, organizing things
