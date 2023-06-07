@@ -19,6 +19,9 @@ Features
    (using
    `Israeli-bank-scrappers <https://github.com/eshaham/israeli-bank-scrapers>`__)
 
+.. image:: asssets/screens_collage.png
+    :align: center
+
 .. contents::
 
 How to run
@@ -109,7 +112,7 @@ need to make, do we spend more on food or on entertainment? How much do
 we save? etc. These questions are not answered by expense tracking
 alone, but by budgeting, by giving each expense category a goal we want
 to reach. This is a main functionality of FinDash - the ability to set
-expense:raw-latex:`\savings `goals and keep track of them.
+expense/savings goals and keep track of them.
 
 Behaviour tracking
 ~~~~~~~~~~~~~~~~~~
