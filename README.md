@@ -12,14 +12,9 @@
 * [Coming soon] Pension and investments tracking
 * [Coming soon] Automatic scraping from Israeli financial institutions 
   (using [Israeli-bank-scrappers](https://github.com/eshaham/israeli-bank-scrapers)
-  
-<img align='left' width=450 src="assets/readme/monthly.png">
-<img align='left' width=450 src="assets/readme/breakdown.png">
-<br clear="left">
-<img align='right' width=450 src="assets/readme/transactions.png">
-<img align='right' width=450 src="assets/readme/categories.png">
-<br clear="right">
-  
+
+<img src="assets/readme/screens_collage.png">
+ 
 ## How to run
 
 clone this repo
@@ -36,10 +31,25 @@ cd findash
 poetry run python main.py
 ```
 
-## Structure
-The current implementation uses Plotly Dash as a front end and parquet 
-files as the DB to save financial transaction data. Future implementation 
-might move to a proper SQL DB, depending on the needs.
+### Accounts asset
+Until the ability to add accounts in the UI is added, an `accounts.yaml` file must be manually created with the following format
+```yaml
+account_name:
+  institution: institution_name
+```
+where `institution_name` is a class in the `accounts.py` file
+
+<br><br>
+
+## Database
+Currently data is stored as parquets (loaded using pandas) and json files. In the future we might want to migrate to a proper 
+SQL DB, but so far this is not needed. 
+
+## Contribution
+### Installing for development
+### Running tests
+### Code style
+
 
 ## Idea
 FinDash is an all-in-one personal financial dashboard, organizing things 
