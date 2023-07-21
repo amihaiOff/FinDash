@@ -3,7 +3,7 @@ name = "findash"
 version = "0.1.0"
 description = "Financial dashboard for budgeting"
 authors = ["amihai <amihaio@gmail.com>"]
-readme = "README.md"
+readme = "README.rst"
 
 
 [tool.poetry.dependencies]
