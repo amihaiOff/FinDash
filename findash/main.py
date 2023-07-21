@@ -157,5 +157,6 @@ logger.info('Created trans db')
 app = setup_app()
 server = app.server
 
-logger.info('Running app')
-app.run(port=8001, debug=True)
+if __name__ == '__main__':
+    logger.info('Running app')
+    app.run(debug=True)
