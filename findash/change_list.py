@@ -1,5 +1,6 @@
 from collections import deque
-from utils import Change, ChangeType
+
+from findash.utils import Change, ChangeType
 
 
 class ChangeList:

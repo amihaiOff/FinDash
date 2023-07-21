@@ -4,10 +4,10 @@ from typing import Union
 
 import pandas as pd
 
-from accounts import InflowSign, ACCOUNTS
-from transactions_db import TransDBSchema
-from transactions_db import apply_dtypes
-from categories_db import CategoriesDB
+from findash.accounts import InflowSign, ACCOUNTS
+from findash.transactions_db import TransDBSchema
+from findash.transactions_db import apply_dtypes
+from findash.categories_db import CategoriesDB
 
 
 def import_file(trans_file: Union[str, StringIO, BytesIO], account_name: str,

@@ -96,7 +96,7 @@ def _create_budget_usage(group_name: str):
     grouped = trans_db.groupby(TransDBSchema.CAT,
                                observed=True).agg({TransDBSchema.OUTFLOW: 'sum'}).reset_index()
     grouped = grouped.sort_values(by=TransDBSchema.OUTFLOW, ascending=False)
-    budget = CAT_DB.get_group(group_name)
+    budget = CAT_DB.get_cats_in_group(group_name)
     final_df = budget.merge(grouped, left_on='cat_name', right_on='cat', how='left')
     final_df = final_df.fillna({'outflow': 0}).reset_index()
     final_df['pct'] = final_df.outflow * 100 / final_df.budget

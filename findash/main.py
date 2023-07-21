@@ -7,13 +7,13 @@ from dash import Dash, html
 import dash
 import dash_mantine_components as dmc
 from dash_iconify import DashIconify
-
-from transactions_db import TransactionsDBParquet, TransDBSchema
-from categories_db import CategoriesDB
-from accounts import ACCOUNTS, init_accounts
 import dash_auth
 
-from file_io import Bucket, LocalIO
+from findash.transactions_db import TransactionsDBParquet, TransDBSchema
+from findash.categories_db import CategoriesDB
+from findash.accounts import ACCOUNTS, init_accounts
+from findash.file_io import Bucket, LocalIO
+
 
 VALID_USERNAME_PASSWORD_PAIRS = {
     'hello': 'world'
@@ -21,7 +21,7 @@ VALID_USERNAME_PASSWORD_PAIRS = {
 
 
 def setup_logger():
-    logging.config.fileConfig('../logger.ini')
+    logging.config.fileConfig('logger.ini')
     logger = logging.getLogger('Logger')
     logger.info('Logger initialized')
     return logger
@@ -29,8 +29,8 @@ def setup_logger():
 
 logger = setup_logger()
 
-ENV_NAME = 'prod_local'
-load_dotenv(f'../.env.{ENV_NAME}')
+ENV_NAME = 'stag'
+load_dotenv(f'.env.{ENV_NAME}')
 
 
 def setup_trans_db(cat_db: CategoriesDB):

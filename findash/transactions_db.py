@@ -7,11 +7,11 @@ import logging
 
 import pandas as pd
 
-from categories_db import CategoriesDB
-from file_io import FileIO
-from utils import create_uuid, format_date_col_for_display, \
+from findash.categories_db import CategoriesDB
+from findash.utils import create_uuid, format_date_col_for_display, \
     check_null, get_current_year_and_month, Change, ChangeType, START_DATE_DEFAULT
-from change_list import ChangeList
+from findash.change_list import ChangeList
+from findash.file_io import FileIO
 
 """
 The purpose of this module is to provide a database for transactions.

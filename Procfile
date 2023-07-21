@@ -1,1 +1,1 @@
-web: gunicorn --chdir findash main:server
+web: gunicorn findash.main:server

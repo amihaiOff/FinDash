@@ -3,6 +3,10 @@ FinDash
 
 (naming suggestions are welcome)
 
+.. image:: https://img.shields.io/badge/hypothesis-tested-brightgreen.svg
+   :alt: Tested with Hypothesis
+   :target: https://hypothesis.readthedocs.io
+
 Features
 --------
 -  Create expense categories (e.g. bills, medical, rent, going out etc.)

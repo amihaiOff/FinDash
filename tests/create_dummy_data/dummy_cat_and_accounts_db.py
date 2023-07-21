@@ -5,7 +5,7 @@ from tests.create_dummy_data.names import categories, category_groups_mapping,\
     accounts, payee_category_mapping
 
 
-def create_dummy_cat_db(random_seed: int = 42):
+def create_dummy_cat_db(random_seed: int = 42, is_empty: bool = False):
     """
     creates a dummy database for categories taken from names.py file.
     Each category belongs to a category group and has a budget.
@@ -17,11 +17,12 @@ def create_dummy_cat_db(random_seed: int = 42):
     """
     np.random.seed(random_seed)
     rows = []
-    is_constant = False
-    for cat in categories:
-        budget = np.random.randint(100, 1000)
-        cat_group = category_groups_mapping[cat]
-        rows.append([cat_group, cat, budget, is_constant])
+    if not is_empty:
+        is_constant = False
+        for cat in categories:
+            budget = np.random.randint(100, 1000)
+            cat_group = category_groups_mapping[cat]
+            rows.append([cat_group, cat, budget, is_constant])
 
     return pd.DataFrame(
         rows, columns=['cat_group', 'cat_name', 'budget', 'is_constant']

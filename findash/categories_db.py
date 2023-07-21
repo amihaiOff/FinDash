@@ -5,7 +5,7 @@ import json
 
 import pandas as pd
 
-from file_io import FileIO, Ftype
+from findash.file_io import FileIO, Ftype
 
 
 @dataclass
@@ -78,13 +78,32 @@ class CategoriesDB:
         }
 
     def add_category(self,
-                     category_group: str) -> None:
-        new_row =self._create_new_category_row(category_group)
+                     category_group: str) -> str:
+        """
+        Add a new category to the db
+        :param category_group:
+        :return: returns the name of the new category
+        """
+        if category_group not in self.get_group_names():
+            raise ValueError(f'Category group {category_group} does not exist')
+
+        new_row = self._add_new_row_to_db(category_group)
+        return new_row[CatDBSchema.CAT_NAME]
+
+    def add_category_group(self, group_name: str) -> Tuple[str, str]:
+        if group_name in self.get_group_names():
+            raise ValueError(f'Category group {group_name} already exists')
+
+        new_row = self._add_new_row_to_db(group_name)
+        return group_name, new_row[CatDBSchema.CAT_NAME]
+
+    def _add_new_row_to_db(self, category_group) -> dict:
+        new_row = self._create_new_category_row(category_group)
         self._db = self._db.append(
             new_row,
             ignore_index=True)
         self._save_cat_db()
-        return new_row[CatDBSchema.CAT_NAME]
+        return new_row
 
     def update_category_name(self, old_name: str, new_name: str) -> None:
         if new_name in self.get_categories():
@@ -173,8 +192,12 @@ class CategoriesDB:
     def get_categories(self) -> List[str]:
         return self._db[CatDBSchema.CAT_NAME].to_list()
 
-    def get_group(self, group_name: str) -> pd.DataFrame:
+    def get_cats_in_group(self, group_name: str) -> pd.DataFrame:
         return self._db[self._db[CatDBSchema.CAT_GROUP] == group_name]
+
+    def get_cats_in_group_list(self, group_name: str) -> pd.DataFrame:
+        df = self._db[self._db[CatDBSchema.CAT_GROUP] == group_name]
+        return df[CatDBSchema.CAT_NAME].to_list()
 
     def get_group_budget(self, group_name: str) -> pd.DataFrame:
         group_ind = self._db[CatDBSchema.CAT_GROUP] == group_name
