@@ -115,18 +115,20 @@ def _validate_accounts(accounts):
 
 
 def setup_app():
-    app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP,
+    app = Dash(__name__, external_stylesheets=[#dbc.themes.BOOTSTRAP,
                                                # dbc.themes.MATERIA,
                                                # dbc.icons.FONT_AWESOME,
                                                ],
-               use_pages=True, suppress_callback_exceptions=True,
+               use_pages=False, suppress_callback_exceptions=True,
                )
+    logger.info('created dash app')
 
     # auth = dash_auth.BasicAuth(
     #     app,
     #     VALID_USERNAME_PASSWORD_PAIRS
     # )
     setup_pages_container(app)
+    logger.info('created pages container')
     return app
 
 
